@@ -1,5 +1,7 @@
 aspyrobot==0.2.0
 aspyrobotmx==0.1.0
+click==6.3
+colorlog==2.6.1
 dcss==1.2.1
 flake8==2.5.4
 mccabe==0.4.0

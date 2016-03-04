@@ -11,5 +11,12 @@ setup(
     install_requires=[
         'dcss',
         'aspyrobotmx',
+        'click',
+        'colorlog',
     ],
+    entry_points={
+        'console_scripts': [
+            'pyrobotdhs=pyrobotdhs.cmd:run'
+        ],
+    },
 )
