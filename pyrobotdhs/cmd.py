@@ -1,16 +1,20 @@
 import click
 from aspyrobotmx import RobotClientMX
 from . import RobotDHS
-from .config import logging_config
-import logging
+import json
 import logging.config
 from time import sleep
 
 
 @click.command()
 @click.option('--dcss', required=True)
-def run(dcss):
-    logging.config.dictConfig(logging_config)
+@click.option('--config', type=click.Path(exists=True))
+def run(dcss, config):
+    if config:
+        with open(config) as file:
+            config = json.load(file)
+        if 'logging' in config:
+            logging.config.dictConfig(config['logging'])
     dhs = RobotDHS(dcss=dcss, robot=RobotClientMX())
     dhs.setup()
     while True:
