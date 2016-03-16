@@ -1,5 +1,6 @@
 from dcss import Server as DHS
 from threading import Thread, Event
+import time
 
 
 HOLDER_TYPE_UNKNOWN = 'u'
@@ -99,6 +100,18 @@ class RobotDHS(DHS):
         self.send_set_robot_force_string('right')
         self.send_calibration_timestamps()
 
+    def wait_for_operation_to_complete(self, operation):
+        self.foreground_operation = operation
+        self.log.info('Waiting for operation to start')
+        time.sleep(.2)  # HACK: Give to for operation to start
+        # TODO: Check if operation has started
+        self.log.info('Waiting for operation to stop')
+        self.foreground_free.wait()
+        time.sleep(.2)  # HACK: Give to for run_result to arrive
+        # TODO: Check if that run results has updated
+        self.log.info('Sending operation complete')
+        self.operation_complete(operation)
+
     # ***************************************************************
     # ******************** DHS attributes ***************************
     # ***************************************************************
@@ -135,8 +148,11 @@ class RobotDHS(DHS):
 
     @property
     def mounted(self):
-        # TODO: temporary hack
-        return ''
+        # TODO: Test
+        sample_on_goniometer = self.robot.sample_locations['goniometer']
+        if not sample_on_goniometer:
+            return ''
+        return self.port_tuple_to_str(sample_on_goniometer)
 
     @property
     def sample_state(self):
@@ -175,7 +191,7 @@ class RobotDHS(DHS):
     @property
     def current_port(self):
         # TODO: temporary hack
-        return 'm 2 A'
+        return ''
 
     @property
     def status(self):
@@ -203,6 +219,7 @@ class RobotDHS(DHS):
         try:
             level, message = value.split(' ', 1)
         except ValueError:
+            self.log.error('Expected space in %r', value)
             level, message = 'INFO', value
         level = {
             'DEBUG': 'note',
@@ -246,8 +263,6 @@ class RobotDHS(DHS):
 
     def on_task_progress(self, _): self.send_set_status_string()
 
-    def on_sample_locations(self, _): self.send_set_state_string()
-
     def on_closest_point(self, _): self.send_set_state_string()
 
     def on_ln2_level(self, _): self.send_set_state_string()
@@ -255,6 +270,10 @@ class RobotDHS(DHS):
     def on_port_states(self, _): self.send_set_robot_cassette_string()
 
     def on_holder_types(self, _): self.send_set_robot_cassette_string()
+
+    def on_sample_locations(self, _):
+        self.send_set_state_string()
+        self.send_set_robot_cassette_string()
 
     # ****************************************************************
     # ******************** dhs -> dcss messages **********************
@@ -367,11 +386,16 @@ class RobotDHS(DHS):
         self.send_xos3(msg)
 
     def send_set_robot_cassette_string(self):
-        # TODO: The mounted pin should be labeled "m"
+        # TODO: Test mounted position
+        sample_on_goni = self.robot.sample_locations['goniometer']
+        mounted_position, mounted_port = (sample_on_goni
+                                          if sample_on_goni else (None, None))
         msg = 'htos_set_string_completed robot_cassette normal'
         for position in ['left', 'middle', 'right']:
             states = [PORT_STATE_LOOKUP[s]
                       for s in self.robot.port_states[position]]
+            if mounted_position == position:
+                states[mounted_port] = 'm'
             msg += ' {type} {states}'.format(
                 type=self.robot.holder_types[position],
                 states=' '.join(states)
@@ -405,18 +429,16 @@ class RobotDHS(DHS):
             ' {height_error} {distances}'
         ).format(
             position=position,
-            height_error=self.robot.height_errors[position],
+            height_error=self.robot.height_errors[position] or 0,
             distances=' '.join(distance_strings)
         )
         self.send_xos3(msg)
 
     def operation_complete(self, operation):
         # TODO: This needs a review - should operation be passed in?
-        try:
-            result, message = self.robot.task_result.split(' ', 1)
-        except ValueError:
-            result, message = self.robot.task_result, ''
-        if result in ['normal', 'success']:
+        result, _, message = self.robot.task_result.partition(' ')
+        self.log.info('task_result: %r', self.robot.task_result)
+        if result.lower() in ['ok', 'normal', 'success']:
             operation.operation_completed(message)
         else:
             operation.operation_error(message)
@@ -514,12 +536,7 @@ class RobotDHS(DHS):
         result = self.robot.probe(spec)
         if result['error']:
             return finalize_operation(operation, result)
-        self.foreground_operation = operation
-        self.foreground_free.clear()
-        self.log.error('Waiting for foreground to become free')
-        self.foreground_free.wait()
-        self.log.error('Foreground free')
-        self.operation_complete(operation)
+        self.wait_for_operation_to_complete(operation)
 
     def robot_calibrate(self, operation, target, *run_args):
         run_args = ' '.join(run_args)
@@ -528,32 +545,52 @@ class RobotDHS(DHS):
         response = self.robot.calibrate(target=target, run_args=run_args)
         if response['error']:
             return finalize_operation(operation, response)
-        self.foreground_operation = operation
-        self.foreground_free.clear()  # Hmmm...
-        self.foreground_free.wait()
-        self.operation_complete(operation)
+        self.wait_for_operation_to_complete(operation)
 
-    def prepare_mount_crystal(self, operation, cassette, row, column, *args):
-        self.log.info('prepare_mount_crystal: %r %r %r', cassette, row, column)
-        cassette = {'r': 'right', 'm': 'middle', 'l': 'left'}[cassette]
-        response = self.robot.prepare_for_mount(cassette, column, int(row))
+    def prepare_mount_crystal(self, operation, *args):
+        # Also used by prepare_dismount_crystal and prepare_mount_next_crystal
+        self.log.info('prepare_mount_crystal: %r', args)
+        response = self.robot.prepare_for_mount()
         if response['error']:
             return finalize_operation(operation, response)
-        self.foreground_operation = operation
-        operation.operation_update('OK to prepare')
-        self.foreground_free.clear()
-        self.foreground_free.wait()
-        self.operation_complete(operation)
+        self.wait_for_operation_to_complete(operation)
+
+    def prepare_dismount_crystal(self, operation, *args):
+        self.log.info('prepare_dismount_crystal: %r', args)
+        self.prepare_mount_crystal(operation)
+
+    def prepare_mount_next_crystal(self, operation, *args):
+        self.log.info('prepare_mount_next_crystal: %r', args)
+        self.prepare_mount_crystal(operation)
 
     def mount_crystal(self, operation, cassette, row, column, *args):
+        # Also used by mount_next_crystal
         self.log.info('mount_crystal: %r %r %r', cassette, row, column)
         cassette = {'r': 'right', 'm': 'middle', 'l': 'left'}[cassette]
         response = self.robot.mount(cassette, column, int(row))
         if response['error']:
             return finalize_operation(operation, response)
-        self.foreground_free.clear()
-        self.foreground_free.wait()
-        self.operation_complete(operation)
+        self.wait_for_operation_to_complete(operation)
+
+    def dismount_crystal(self, operation, cassette, row, column, *args):
+        self.log.info('dismount_crystal: %r %r %r', cassette, row, column)
+        cassette = {'r': 'right', 'm': 'middle', 'l': 'left'}[cassette]
+        response = self.robot.dismount(cassette, column, int(row))
+        if response['error']:
+            return finalize_operation(operation, response)
+        self.wait_for_operation_to_complete(operation)
+
+    def mount_next_crystal(self, operation,
+                           current_cassette, current_row, current_column,
+                           cassette, row, column, *args):
+        self.log.info('mount_next_crystal %r %r %r %r %r %r',
+                      current_cassette, current_row, current_column,
+                      cassette, row, column)
+        self.mount_crystal(operation, cassette, row, column)
+
+    def robot_standby(self, operation, *args):
+        # TODO: Does anything need to be done here?
+        finalize_operation(operation, {})
 
     def port_tuple_to_str(self, port_tuple):
         if not port_tuple:
@@ -575,7 +612,8 @@ class RobotDHS(DHS):
 
 
 def finalize_operation(operation, result):
-    if result['error']:
-        operation.operation_error(result['error'])
+    error = result.get('error')
+    if error:
+        operation.operation_error(error)
     else:
         operation.operation_completed('OK')
