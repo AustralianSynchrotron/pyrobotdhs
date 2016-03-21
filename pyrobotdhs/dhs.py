@@ -103,11 +103,11 @@ class RobotDHS(DHS):
     def wait_for_operation_to_complete(self, operation):
         self.foreground_operation = operation
         self.log.info('Waiting for operation to start')
-        time.sleep(.2)  # HACK: Give to for operation to start
+        time.sleep(.4)  # HACK: Give to for operation to start
         # TODO: Check if operation has started
         self.log.info('Waiting for operation to stop')
         self.foreground_free.wait()
-        time.sleep(.2)  # HACK: Give to for run_result to arrive
+        time.sleep(.4)  # HACK: Give to for run_result to arrive
         # TODO: Check if that run results has updated
         self.log.info('Sending operation complete')
         self.operation_complete(operation)
