@@ -1,11 +1,8 @@
 import pytest
 from mock import MagicMock, call
+
 from pyrobotdhs import RobotDHS
-from pyrobotdhs.dhs import (HOLDER_TYPE_UNKNOWN, HOLDER_TYPE_CASSETTE,
-                            HOLDER_TYPE_ADAPTOR,
-                            PORT_STATE_UNKNOWN)
-import time
-from threading import Thread
+from pyrobotdhs.dhs import HOLDER_TYPE_CASSETTE, HOLDER_TYPE_ADAPTOR
 
 
 @pytest.fixture
@@ -24,28 +21,31 @@ def test_robot_config_hw_output_switch_for_gripper(dhs, start, output):
     mock_robot = dhs.robot
     mock_operation = MagicMock()
     mock_robot.gripper_command = start
-    mock_robot.set_gripper.return_value = {'error': None}
+    mock_robot.set_gripper.return_value = None
     dhs.robot_config_hw_output_switch(mock_operation, '1')
-    assert mock_robot.set_gripper.call_args == call(output)
-    assert mock_operation.operation_completed.call_args == call('OK')
+    assert mock_robot.set_gripper.call_args[0][0] == output
 
 
 def test_robot_config_reset_cassette(dhs):
-    mock_robot = dhs.robot
-    mock_operation = MagicMock()
-    dhs.robot_config_reset_cassette(mock_operation)
-    assert mock_robot.set_holder_type.call_args_list == [
-        (('left', HOLDER_TYPE_UNKNOWN),),
-        (('middle', HOLDER_TYPE_UNKNOWN),),
-        (('right', HOLDER_TYPE_UNKNOWN),),
-    ]
-    all_ports = list(range(96))
-    assert mock_robot.set_port_states.call_args_list == [
-        (('left', all_ports, PORT_STATE_UNKNOWN),),
-        (('middle', all_ports, PORT_STATE_UNKNOWN),),
-        (('right', all_ports, PORT_STATE_UNKNOWN),),
-    ]
-    assert mock_operation.operation_completed.call_args == call('OK')
+    dhs.robot_config_reset_cassette(MagicMock())
+    expected_ports = {'left': [1] * 96, 'middle': [1] * 96, 'right': [1] * 96}
+    assert dhs.robot.reset_ports.call_args[0][0] == expected_ports
+
+
+def test_robot_config_set_index_state_left_column_A(dhs):
+    dhs.robot_config_set_index_state(MagicMock(), '1', '8', 'b')
+    expected_ports = {'left': [1] * 8 + [0] * 88,
+                      'middle': [0] * 96,
+                      'right': [0] * 96}
+    assert dhs.robot.reset_ports.call_args[0][0] == expected_ports
+
+
+def test_robot_config_set_index_state_middle_adaptor_mB1(dhs):
+    dhs.robot_config_set_index_state(MagicMock(), '114', '1', 'b')
+    expected_ports = {'left': [0] * 96,
+                      'middle': [0] * 16 + [1] + [0] * 79,
+                      'right': [0] * 96}
+    assert dhs.robot.reset_ports.call_args[0][0] == expected_ports
 
 
 def test_system_error_message_updates_dcss(dhs):
@@ -96,7 +96,7 @@ def test_send_set_state_string(dhs):
         '{on gonio} {in cradle} '
         'P18 '
         'no '
-        '{m 2 A} '
+        '{} '
         '0 0 0 '
         '0 '
         '0 0 '
@@ -107,29 +107,13 @@ def test_send_set_state_string(dhs):
 
 
 def test_robot_config_probe(dhs):
-    dhs.robot.probe.return_value = {'error': None}
+    dhs.robot.probe.return_value = None
     dhs.operation_complete = MagicMock()
     mock_operation = MagicMock()
     ports = ['1'] * (96 + 1) + ['0'] * (96 + 1) * 2
-    args = [mock_operation] + ports
-    op_thread = Thread(target=dhs.robot_config_probe, args=args)
-    op_thread.daemon = True
-    op_thread.start()
-    time.sleep(1e-3)
+    dhs.robot_config_probe(mock_operation, *ports)
     expected_spec = {'left': [1] * 96, 'middle': [0] * 96, 'right': [0] * 96}
-    assert dhs.robot.probe.call_args == call(expected_spec)
-    assert dhs.foreground_operation == mock_operation
-    dhs.foreground_free.set()
-    time.sleep(1e-3)
-    assert dhs.operation_complete.call_args == call(mock_operation)
-
-
-def test_operation_complete(dhs):
-    mock_operation = MagicMock()
-    dhs.robot.configure_mock(task_result='normal ok')
-    dhs.foreground_operation = mock_operation
-    dhs.operation_complete(mock_operation)
-    assert mock_operation.operation_completed.call_args == call('ok')
+    assert dhs.robot.probe.call_args[0][0] == expected_spec
 
 
 def test_setting_foreground_operation(dhs):
@@ -139,19 +123,12 @@ def test_setting_foreground_operation(dhs):
 
 
 def test_prepare_mount_crystal(dhs):
-    dhs.robot.prepare_for_mount.return_value = {'error': None}
+    dhs.robot.prepare_for_mount.return_value = None
     dhs.operation_complete = MagicMock()
     mock_operation = MagicMock()  # TODO: Make a fixture
-    args = (mock_operation, 'r', '6', 'A', '0', '0', '0', '0')
-    op_thread = Thread(target=dhs.prepare_mount_crystal, args=args)
-    op_thread.daemon = True
-    op_thread.start()
-    time.sleep(1e-2)
-    assert dhs.robot.prepare_for_mount.call_args == call('right', 'A', 6)
+    dhs.prepare_mount_crystal(mock_operation, 'r', '6', 'A', '0', '0', '0', '0')
     assert mock_operation.operation_update.call_args == call('OK to prepare')
-    dhs.foreground_free.set()
-    time.sleep(1e-3)
-    assert dhs.operation_complete.call_args == call(mock_operation)
+    assert dhs.robot.prepare_for_mount.called is True
 
 
 def test_send_calibration_timestamps(dhs):

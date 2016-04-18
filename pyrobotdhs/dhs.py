@@ -1,6 +1,7 @@
+from functools import partial
+from threading import Thread
+
 from dcss import Server as DHS
-from threading import Thread, Event
-import time
 
 
 HOLDER_TYPE_UNKNOWN = 'u'
@@ -76,14 +77,11 @@ class RobotDHS(DHS):
         self.robot.delegate = self
 
         self._foreground_operation = None
-        self.foreground_free = Event()
-
         self._needs_clear = True
 
     def setup(self):
         # Start DHS.loop to process incoming dcss messages
-        self.recv_loop_thread = Thread(target=self.loop)
-        self.recv_loop_thread.daemon = True
+        self.recv_loop_thread = Thread(target=self.loop, daemon=True)
         self.recv_loop_thread.start()
 
     def login(self):
@@ -100,17 +98,14 @@ class RobotDHS(DHS):
         self.send_set_robot_force_string('right')
         self.send_calibration_timestamps()
 
-    def wait_for_operation_to_complete(self, operation):
-        self.foreground_operation = operation
-        self.log.info('Waiting for operation to start')
-        time.sleep(.4)  # HACK: Give to for operation to start
-        # TODO: Check if operation has started
-        self.log.info('Waiting for operation to stop')
-        self.foreground_free.wait()
-        time.sleep(.4)  # HACK: Give to for run_result to arrive
-        # TODO: Check if that run results has updated
-        self.log.info('Sending operation complete')
-        self.operation_complete(operation)
+    def operation_callback(self, operation, handle, stage, message=None, error=None):
+        self.log.info('operation_callback: %r %r %r %r %r',
+                      operation, handle, stage, message, error)
+        if stage == 'end':
+            if error:
+                operation.operation_error(error)
+            else:
+                operation.operation_completed(message or 'OK')
 
     # ***************************************************************
     # ******************** DHS attributes ***************************
@@ -118,6 +113,7 @@ class RobotDHS(DHS):
 
     @property
     def foreground_operation(self):
+        # TODO: Should this be handled with a server attribute?
         return self._foreground_operation
 
     @foreground_operation.setter
@@ -229,12 +225,6 @@ class RobotDHS(DHS):
         }.get(level, 'error')
         self.send_xos3('htos_log %s %s' % (level, message))
 
-    def on_foreground_done(self, value):
-        if value == 0:
-            self.foreground_free.clear()
-        elif value == 1:
-            self.foreground_free.set()
-
     def on_system_error_message(self, value):
         if value != 'OK':
             self.send_xos3('htos_log error %s' % value)
@@ -244,6 +234,9 @@ class RobotDHS(DHS):
         self.send_set_robot_force_string('left')
         self.send_set_robot_force_string('middle')
         self.send_set_robot_force_string('right')
+
+
+    def on_at_home(self, _): self.send_set_status_string()
 
     def on_lid_command(self, _): self.send_set_output_string()
 
@@ -434,16 +427,6 @@ class RobotDHS(DHS):
         )
         self.send_xos3(msg)
 
-    def operation_complete(self, operation):
-        # TODO: This needs a review - should operation be passed in?
-        result, _, message = self.robot.task_result.partition(' ')
-        self.log.info('task_result: %r', self.robot.task_result)
-        if result.lower() in ['ok', 'normal', 'success']:
-            operation.operation_completed(message)
-        else:
-            operation.operation_error(message)
-        self.foreground_operation = None
-
     # ****************************************************************
     # ******************** dcss -> dhs messages **********************
     # ****************************************************************
@@ -469,58 +452,64 @@ class RobotDHS(DHS):
     def robot_config_clear(self, operation):
         self._needs_clear = False  # TODO: Actually check!
         self.send_set_status_string()
-        finalize_operation(operation, {'error': None})
+        operation.operation_completed('OK')
 
     def robot_config_clear_all(self, operation):
         self._needs_clear = False  # TODO: Actually check!
         self.send_set_status_string()
-        finalize_operation(operation, {'error': None})
+        operation.operation_completed('OK')
 
     def robot_config_hw_output_switch(self, operation, output):
         output = int(output)
         if output == self.OUTPUT_GRIPPER:
-            result = self.robot.set_gripper(1 - self.robot.gripper_command)
+            func = self.robot.set_gripper
+            value = 1 - self.robot.gripper_command
         elif output == self.OUTPUT_LID:
-            result = self.robot.set_lid(1 - self.robot.lid_command)
+            func = self.robot.set_lid
+            value = 1 - self.robot.lid_command
         else:
-            # TODO: Handle
-            return
-        finalize_operation(operation, result)
+            return operation.operation_error('Not implemented')
+        func(value, callback=partial(self.operation_callback, operation))
 
     def robot_config_reset_cassette(self, operation):
         """ Called by the "reset all to unknown" BluIce button """
-        indices = list(range(SAMPLES_PER_POSITION))
-        for position in ['left', 'middle', 'right']:
-            self.robot.set_holder_type(position, HOLDER_TYPE_UNKNOWN)
-            self.robot.set_port_states(position, indices, PORT_STATE_UNKNOWN)
-        finalize_operation(operation, {'error': None})
+        # TODO: Set holders
+        ports = {'left': [1] * 96, 'middle': [1] * 96, 'right': [1] * 96}
+        callback = partial(self.operation_callback, operation)
+        self.robot.reset_ports(ports, callback=callback)
 
     def robot_config_set_index_state(self, operation, start, port_count, state):
-        """ Called by right-clicking ports in BluIce """
+        """
+        Called by right-clicking ports in BluIce
+
+        Examples:
+            left cassette column A 1-8 to bad: start='1', port_count='8', state='b'
+            middle puck A port 1 to bad: start='98', port_count='1', state='b'
+            middle puck B port 1 to bad: start='114', port_count='1', state='b'
+        """
         start, port_count = int(start), int(port_count)
         samples_and_type_per_position = SAMPLES_PER_POSITION + 1
         position_index = start // samples_and_type_per_position
         position = ['left', 'middle', 'right'][position_index]
         start = start % samples_and_type_per_position
-        if start == 0:
-            holder_type = HOLDER_TYPE_UNKNOWN if state == 'u' else HOLDER_TYPE_BAD
-            self.robot.set_holder_type(position, holder_type)
+        # TODO: Set holder bad if start == 0
         start -= 1
         end = start + port_count
-        result = self.robot.set_port_states(position, list(range(start, end)),
-                                            PORT_STATE_REVERSE_LOOKUP[state])
-        finalize_operation(operation, result)
+        ports = {position: [0] * 96 for position in ['left', 'middle', 'right']}
+        ports[position][start:end] = [1] * port_count
+        callback = partial(self.operation_callback, operation)
+        self.robot.reset_ports(ports, callback=callback)
 
     def robot_config_set_port_state(self, operation, port, state):
         """ Called by the reset cassette status to unknown button in BluIce """
+        return operation.operation_error('Not implemented')
+        # TODO: Use new api
         if port.endswith('X0') and state == 'u':
             position = {'l': 'left', 'm': 'middle', 'r': 'right'}.get(port[0])
             self.robot.set_holder_type(position, HOLDER_TYPE_UNKNOWN)
-            result = self.robot.set_port_states(position,
-                                                list(range(SAMPLES_PER_POSITION)),
-                                                PORT_STATE_UNKNOWN)
-            return finalize_operation(operation, result)
-        finalize_operation(operation, {'error': 'Unrecognized port %s' % port})
+            self.robot.set_port_states(position,
+                                       list(range(SAMPLES_PER_POSITION)),
+                                       PORT_STATE_UNKNOWN)
 
     def robot_config_reset_mounted_counter(self, operation):
         self.robot.run_operation('reset_mount_counters')
@@ -533,27 +522,22 @@ class RobotDHS(DHS):
             'middle': ports[n+1:2*n],
             'right': ports[2*n+1:3*n],
         }
-        result = self.robot.probe(spec)
-        if result['error']:
-            return finalize_operation(operation, result)
-        self.wait_for_operation_to_complete(operation)
+        self.robot.probe(spec, callback=partial(self.operation_callback, operation))
 
     def robot_calibrate(self, operation, target, *run_args):
         run_args = ' '.join(run_args)
         if target == 'magnet_post':
             target = 'toolset'
-        response = self.robot.calibrate(target=target, run_args=run_args)
-        if response['error']:
-            return finalize_operation(operation, response)
-        self.wait_for_operation_to_complete(operation)
+        self.robot.calibrate(target=target, run_args=run_args,
+                             callback=partial(self.operation_callback, operation))
 
     def prepare_mount_crystal(self, operation, *args):
         # Also used by prepare_dismount_crystal and prepare_mount_next_crystal
         self.log.info('prepare_mount_crystal: %r', args)
-        response = self.robot.prepare_for_mount()
-        if response['error']:
-            return finalize_operation(operation, response)
-        self.wait_for_operation_to_complete(operation)
+        # TODO: Check args
+        operation.operation_update('OK to prepare')
+        callback = partial(self.operation_callback, operation)
+        self.robot.prepare_for_mount(callback=callback)
 
     def prepare_dismount_crystal(self, operation, *args):
         self.log.info('prepare_dismount_crystal: %r', args)
@@ -567,18 +551,14 @@ class RobotDHS(DHS):
         # Also used by mount_next_crystal
         self.log.info('mount_crystal: %r %r %r', cassette, row, column)
         cassette = {'r': 'right', 'm': 'middle', 'l': 'left'}[cassette]
-        response = self.robot.mount(cassette, column, int(row))
-        if response['error']:
-            return finalize_operation(operation, response)
-        self.wait_for_operation_to_complete(operation)
+        callback = partial(self.operation_callback, operation)
+        self.robot.mount(cassette, column, int(row), callback=callback)
 
-    def dismount_crystal(self, operation, cassette, row, column, *args):
+    def dismount_crystal(self, operation, cassette, row, column, *_):
         self.log.info('dismount_crystal: %r %r %r', cassette, row, column)
         cassette = {'r': 'right', 'm': 'middle', 'l': 'left'}[cassette]
-        response = self.robot.dismount(cassette, column, int(row))
-        if response['error']:
-            return finalize_operation(operation, response)
-        self.wait_for_operation_to_complete(operation)
+        callback = partial(self.operation_callback, operation)
+        self.robot.dismount(cassette, column, int(row), callback=callback)
 
     def mount_next_crystal(self, operation,
                            current_cassette, current_row, current_column,
