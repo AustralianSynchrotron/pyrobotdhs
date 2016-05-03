@@ -1,5 +1,3 @@
-aspyrobot==0.10.1
-aspyrobotmx==0.5.1
 click==6.6
 colorlog==2.6.3
 dcss==1.3.0

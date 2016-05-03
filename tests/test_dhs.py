@@ -1,8 +1,9 @@
 import pytest
 from mock import MagicMock, call
 
+from aspyrobotmx.codes import HolderType, PortState
+
 from pyrobotdhs import RobotDHS
-from pyrobotdhs.dhs import HOLDER_TYPE_CASSETTE, HOLDER_TYPE_ADAPTOR
 
 
 @pytest.fixture
@@ -48,6 +49,11 @@ def test_robot_config_set_index_state_middle_adaptor_mB1(dhs):
     assert dhs.robot.reset_ports.call_args[0][0] == expected_ports
 
 
+def test_robot_config_set_port_state(dhs):
+    dhs.robot_config_set_port_state(MagicMock(), 'lX0', 'u')
+    assert dhs.robot.set_holder_type.call_args[0] == ('left', HolderType.unknown)
+
+
 def test_system_error_message_updates_dcss(dhs):
     dhs.send_xos3 = MagicMock()
     dhs.on_system_error_message('Bad bad happened')
@@ -62,7 +68,7 @@ def test_system_error_message_does_not_update_dcss_when_ok(dhs):
 
 def test_port_tuple_to_str_for_cassettes(dhs):
     dhs.robot.configure_mock(
-        holder_types={'left': HOLDER_TYPE_CASSETTE}
+        holder_types={'left': HolderType.normal}
     )
     s = dhs.port_tuple_to_str(('left', 16))
     assert s == 'l 1 C'
@@ -70,7 +76,7 @@ def test_port_tuple_to_str_for_cassettes(dhs):
 
 def test_port_tuple_to_str_for_adaptors(dhs):
     dhs.robot.configure_mock(
-        holder_types={'left': HOLDER_TYPE_ADAPTOR}
+        holder_types={'left': HolderType.superpuck}
     )
     s = dhs.port_tuple_to_str(('left', 16))
     assert s == 'l 1 B'
@@ -82,7 +88,7 @@ def test_send_set_state_string(dhs):
     dhs.robot.configure_mock(
         closest_point=18,
         ln2_level=0,
-        holder_types={'left': HOLDER_TYPE_CASSETTE},
+        holder_types={'left': HolderType.normal},
         sample_locations={
             'goniometer': (),
             'cavity': ('left', 0),
@@ -143,4 +149,33 @@ def test_send_calibration_timestamps(dhs):
     dhs.send_calibration_timestamps()
     expected_msg = ('htos_set_string_completed ts_robot_cal normal '
                     '{2016/02/08 11:39:12} {} {} {} {}')
+    assert dhs.send_xos3.call_args == call(expected_msg)
+
+
+def test_set_robot_cassette_string(dhs):
+    dhs.robot.configure_mock(
+        sample_locations={
+            'goniometer': ['left', 0],
+        },
+        port_states={
+            'left': [PortState.full] * 96,
+            'middle': [PortState.empty] * 96,
+            'right': [PortState.unknown] * 96,
+        },
+        holder_types={
+            'left': HolderType.normal,
+            'middle': HolderType.superpuck,
+            'right': HolderType.unknown,
+        }
+    )
+    dhs.send_xos3 = MagicMock()
+    dhs.send_set_robot_cassette_string()
+    expected_msg = (
+        'htos_set_string_completed robot_cassette normal '
+        '{left} {middle} {right}'
+    ).format(
+        left=' '.join(['1'] + ['m'] + ['1'] * 95),
+        middle=' '.join(['3'] + ['0'] * 96),
+        right=' '.join(['u'] + ['u'] * 96),
+    )
     assert dhs.send_xos3.call_args == call(expected_msg)

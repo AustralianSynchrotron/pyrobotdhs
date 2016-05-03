@@ -1,29 +1,26 @@
 from functools import partial
 from threading import Thread
 
+from aspyrobotmx.codes import HolderType, PortState
 from dcss import Server as DHS
 
 
-HOLDER_TYPE_UNKNOWN = 'u'
-HOLDER_TYPE_CASSETTE = '1'
-HOLDER_TYPE_CALIBRATION_CASSETTE = '2'
-HOLDER_TYPE_ADAPTOR = '3'
-HOLDER_TYPE_BAD = 'X'
-
-PORT_STATE_FULL = -1
-PORT_STATE_UNKNOWN = 0
-PORT_STATE_EMPTY = 1
-PORT_STATE_ERROR = 2
-
 SAMPLES_PER_POSITION = 96
 
-PORT_STATE_LOOKUP = {
-    PORT_STATE_UNKNOWN: 'u',
-    PORT_STATE_EMPTY: '0',
-    PORT_STATE_FULL: '1',
-    PORT_STATE_ERROR: 'b',
+HOLDER_TYPE_MAP = {
+    HolderType.unknown: 'u',
+    HolderType.normal: '1',
+    HolderType.calibration: '2',
+    HolderType.superpuck: '3',
+    # HolderType.error: 'X',  # SPEL doesn't report error
 }
-PORT_STATE_REVERSE_LOOKUP = {v: k for k, v in PORT_STATE_LOOKUP.items()}
+
+PORT_STATE_MAP = {
+    PortState.unknown: 'u',
+    PortState.empty: '0',
+    PortState.full: '1',
+    PortState.error: 'b',
+}
 
 
 class RobotDHS(DHS):
@@ -235,7 +232,6 @@ class RobotDHS(DHS):
         self.send_set_robot_force_string('middle')
         self.send_set_robot_force_string('right')
 
-
     def on_at_home(self, _): self.send_set_status_string()
 
     def on_lid_command(self, _): self.send_set_output_string()
@@ -385,12 +381,11 @@ class RobotDHS(DHS):
                                           if sample_on_goni else (None, None))
         msg = 'htos_set_string_completed robot_cassette normal'
         for position in ['left', 'middle', 'right']:
-            states = [PORT_STATE_LOOKUP[s]
-                      for s in self.robot.port_states[position]]
+            states = [PORT_STATE_MAP[s] for s in self.robot.port_states[position]]
             if mounted_position == position:
                 states[mounted_port] = 'm'
             msg += ' {type} {states}'.format(
-                type=self.robot.holder_types[position],
+                type=HOLDER_TYPE_MAP[self.robot.holder_types[position]],
                 states=' '.join(states)
             )
         self.send_xos3(msg)
@@ -502,14 +497,14 @@ class RobotDHS(DHS):
 
     def robot_config_set_port_state(self, operation, port, state):
         """ Called by the reset cassette status to unknown button in BluIce """
-        return operation.operation_error('Not implemented')
-        # TODO: Use new api
+        # TODO: Test on robot
         if port.endswith('X0') and state == 'u':
             position = {'l': 'left', 'm': 'middle', 'r': 'right'}.get(port[0])
-            self.robot.set_holder_type(position, HOLDER_TYPE_UNKNOWN)
-            self.robot.set_port_states(position,
-                                       list(range(SAMPLES_PER_POSITION)),
-                                       PORT_STATE_UNKNOWN)
+            callback = partial(self.operation_callback, operation)
+            self.robot.set_holder_type(position, HolderType.unknown,
+                                       callback=callback)
+        else:
+            operation.operation_error('Not implemented')
 
     def robot_config_reset_mounted_counter(self, operation):
         self.robot.run_operation('reset_mount_counters')
@@ -577,12 +572,12 @@ class RobotDHS(DHS):
             return 'invalid'
         position, port = port_tuple
         holder_type = self.robot.holder_types[position]
-        if holder_type in {HOLDER_TYPE_CASSETTE, HOLDER_TYPE_CALIBRATION_CASSETTE}:
+        if holder_type in {HolderType.normal, HolderType.calibration}:
             column = chr(port // 8 + ord('A'))
             row = port % 8 + 1
             return '{position} {row} {column}'.format(position=position[0],
                                                       column=column, row=row)
-        elif holder_type == HOLDER_TYPE_ADAPTOR:
+        elif holder_type == HolderType.superpuck:
             puck = chr(port // 16 + ord('A'))
             row = port % 16 + 1
             return '{position} {row} {puck}'.format(position=position[0],
