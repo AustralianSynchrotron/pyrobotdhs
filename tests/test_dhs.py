@@ -27,6 +27,20 @@ def test_robot_config_hw_output_switch_for_gripper(dhs, start, output):
     assert mock_robot.set_gripper.call_args[0][0] == output
 
 
+def test_robot_config_hw_output_switch_for_heater(dhs):
+    mock_robot = dhs.robot
+    mock_robot.heater_command = 1
+    dhs.robot_config_hw_output_switch(MagicMock(), '14')
+    assert mock_robot.set_heater.call_args[0][0] == 0
+
+
+def test_robot_config_hw_output_switch_for_heater_air(dhs):
+    mock_robot = dhs.robot
+    mock_robot.heater_air_command = 1
+    dhs.robot_config_hw_output_switch(MagicMock(), '13')
+    assert mock_robot.set_heater_air.call_args[0][0] == 0
+
+
 def test_robot_config_reset_cassette(dhs):
     dhs.robot_config_reset_cassette(MagicMock())
     expected_ports = {'left': [1] * 96, 'middle': [1] * 96, 'right': [1] * 96}
@@ -178,4 +192,33 @@ def test_set_robot_cassette_string(dhs):
         middle=' '.join(['3'] + ['0'] * 96),
         right=' '.join(['u'] + ['u'] * 96),
     )
+    assert dhs.send_xos3.call_args == call(expected_msg)
+
+
+def test_send_set_output_string(dhs):
+    dhs.robot.configure_mock(
+        gripper_command=1,
+        lid_command=1,
+        heater_command=1,
+        heater_air_command=1,
+    )
+    dhs.send_xos3 = MagicMock()
+    dhs.send_set_output_string()
+    expected_msg = ('htos_set_string_completed robot_output normal '
+                    '0 1 0 1 0 0 0 0 0 0 0 0 0 1 1 0')
+    assert dhs.send_xos3.call_args == call(expected_msg)
+
+
+def test_send_set_input_string(dhs):
+    dhs.robot.configure_mock(
+        gripper_open=1,
+        gripper_closed=1,
+        lid_closed=1,
+        lid_open=1,
+        heater_hot=1,
+    )
+    dhs.send_xos3 = MagicMock()
+    dhs.send_set_input_string()
+    expected_msg = ('htos_set_string_completed robot_input normal '
+                    '0 0 0 0 0 0 0 0 1 1 0 1 1 1 0 0')
     assert dhs.send_xos3.call_args == call(expected_msg)

@@ -27,8 +27,8 @@ class RobotDHS(DHS):
 
     OUTPUT_GRIPPER = 1
     OUTPUT_LID = 3
-    OUTPUT_DRY_AIR = 13
     OUTPUT_HEATER = 14
+    OUTPUT_HEATER_AIR = 13
 
     STATUS_NEED_ALL = 0x0000007f
     STATUS_NEED_CAL_ALL = 0x0000003C
@@ -238,6 +238,10 @@ class RobotDHS(DHS):
 
     def on_gripper_command(self, _): self.send_set_output_string()
 
+    def on_heater_command(self, _): self.send_set_output_string()
+
+    def on_heater_air_command(self, _): self.send_set_output_string()
+
     def on_lid_open(self, _): self.send_set_input_string()
 
     def on_lid_closed(self, _): self.send_set_input_string()
@@ -245,6 +249,8 @@ class RobotDHS(DHS):
     def on_gripper_open(self, _): self.send_set_input_string()
 
     def on_gripper_closed(self, _): self.send_set_input_string()
+
+    def on_heater_hot(self, _): self.send_set_input_string()
 
     def on_pins_mounted(self, _): self.send_set_status_string()
 
@@ -276,8 +282,8 @@ class RobotDHS(DHS):
             '0 '  # out2
             '{robot.lid_command} '
             '0 0 0 0 0 0 0 0 0 '  # out4-14
-            '0 '  # TODO: dry air
-            '0 '  # TODO: heater
+            '{robot.heater_air_command} '
+            '{robot.heater_command} '
             '0'  # out15
         ).format(robot=self.robot)
         self.send_xos3(msg)
@@ -291,7 +297,7 @@ class RobotDHS(DHS):
             '0 '  # in10
             '{robot.lid_closed} '
             '{robot.lid_open} '
-            '0 '  # TODO: Heater
+            '{robot.heater_hot} '
             '0 0'  # in14-15
         ).format(robot=self.robot)
         self.send_xos3(msg)
@@ -462,6 +468,12 @@ class RobotDHS(DHS):
         elif output == self.OUTPUT_LID:
             func = self.robot.set_lid
             value = 1 - self.robot.lid_command
+        elif output == self.OUTPUT_HEATER:
+            func = self.robot.set_heater
+            value = 1 - self.robot.heater_command
+        elif output == self.OUTPUT_HEATER_AIR:
+            func = self.robot.set_heater_air
+            value = 1 - self.robot.heater_air_command
         else:
             return operation.operation_error('Not implemented')
         func(value, callback=partial(self.operation_callback, operation))
