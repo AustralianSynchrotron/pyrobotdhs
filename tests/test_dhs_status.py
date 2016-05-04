@@ -1,4 +1,7 @@
 import pytest
+
+from aspyrobotmx.codes import RobotStatus
+
 from pyrobotdhs import RobotDHS
 
 
@@ -22,21 +25,20 @@ def test_dhs_status_ok(dhs):
 
 def test_dhs_status_needs_clear(dhs):
     dhs._needs_clear = True
-    assert dhs.status == RobotDHS.STATUS_NEED_CLEAR
+    assert dhs.status == RobotStatus.need_clear
 
 
 def test_dhs_status_handles_safety_gate(dhs):
     dhs.robot.safety_gate = 1
-    assert dhs.status == RobotDHS.STATUS_REASON_SAFEGUARD
+    assert dhs.status == RobotStatus.reason_safeguard
 
 
 def test_dhs_status_combinations(dhs):
     dhs._needs_clear = 1
     dhs.robot.safety_gate = 1
-    assert dhs.status == (RobotDHS.STATUS_NEED_CLEAR |
-                          RobotDHS.STATUS_REASON_SAFEGUARD)
+    assert dhs.status == (RobotStatus.need_clear | RobotStatus.reason_safeguard)
 
 
 def test_dhs_status_not_at_home(dhs):
     dhs.robot.at_home = 0
-    assert dhs.status == RobotDHS.STATUS_REASON_NOT_HOME
+    assert dhs.status == RobotStatus.reason_not_home

@@ -1,7 +1,8 @@
 from functools import partial
 from threading import Thread
+from enum import IntEnum
 
-from aspyrobotmx.codes import HolderType, PortState
+from aspyrobotmx.codes import HolderType, PortState, RobotStatus
 from dcss import Server as DHS
 
 
@@ -23,49 +24,14 @@ PORT_STATE_MAP = {
 }
 
 
+class Output(IntEnum):
+    gripper = 1
+    lid = 3
+    heater = 14
+    heater_air = 13
+
+
 class RobotDHS(DHS):
-
-    OUTPUT_GRIPPER = 1
-    OUTPUT_LID = 3
-    OUTPUT_HEATER = 14
-    OUTPUT_HEATER_AIR = 13
-
-    STATUS_NEED_ALL = 0x0000007f
-    STATUS_NEED_CAL_ALL = 0x0000003C
-    STATUS_NEED_CLEAR = 0x00000001
-    STATUS_NEED_RESET = 0x00000002
-    STATUS_NEED_CAL_MAGNET = 0x00000004
-    STATUS_NEED_CAL_CASSETTE = 0x00000008
-    STATUS_NEED_CAL_GONIO = 0x00000010
-    STATUS_NEED_CAL_BASIC = 0x00000020
-    STATUS_NEED_USER_ACTION = 0x00000040
-    STATUS_REASON_ALL = 0x0fffff80
-    STATUS_REASON_PORT_JAM = 0x00000080
-    STATUS_REASON_ESTOP = 0x00000100
-    STATUS_REASON_SAFEGUARD = 0x00000200
-    STATUS_REASON_NOT_HOME = 0x00000400
-    STATUS_REASON_CMD_ERROR = 0x00000800
-    STATUS_REASON_LID_JAM = 0x00001000
-    STATUS_REASON_GRIPPER_JAM = 0x00002000
-    STATUS_REASON_LOST_MAGNET = 0x00004000
-    STATUS_REASON_COLLISION = 0x00008000
-    STATUS_REASON_INIT = 0x00010000
-    STATUS_REASON_TOLERANCE = 0x00020000
-    STATUS_REASON_LN2LEVEL = 0x00040000
-    STATUS_REASON_HEATER_FAIL = 0x00080000
-    STATUS_REASON_CASSETTE = 0x00100000
-    STATUS_REASON_PIN_LOST = 0x00200000
-    STATUS_REASON_WRONG_STATE = 0x00400000
-    STATUS_REASON_BAD_ARG = 0x00800000
-    STATUS_REASON_SAMPLE_IN_PORT = 0x01000000
-    STATUS_REASON_ABORT = 0x02000000
-    STATUS_REASON_UNREACHABLE = 0x04000000
-    STATUS_REASON_EXTERNAL = 0x08000000
-    STATUS_IN_ALL = 0xf0000000
-    STATUS_IN_RESET = 0x10000000
-    STATUS_IN_CALIBRATION = 0x20000000
-    STATUS_IN_TOOL = 0x40000000
-    STATUS_IN_MANUAL = 0x80000000
 
     def __init__(self, dcss, robot):
 
@@ -190,11 +156,11 @@ class RobotDHS(DHS):
     def status(self):
         status = 0
         if self.needs_clear:
-            status |= self.STATUS_NEED_CLEAR
+            status |= RobotStatus.need_clear
         if self.robot.safety_gate:
-            status |= self.STATUS_REASON_SAFEGUARD
+            status |= RobotStatus.reason_safeguard
         if self.robot.at_home != 1:
-            status |= self.STATUS_REASON_NOT_HOME
+            status |= RobotStatus.reason_not_home
         return status
 
     @property
@@ -462,16 +428,16 @@ class RobotDHS(DHS):
 
     def robot_config_hw_output_switch(self, operation, output):
         output = int(output)
-        if output == self.OUTPUT_GRIPPER:
+        if output == Output.gripper:
             func = self.robot.set_gripper
             value = 1 - self.robot.gripper_command
-        elif output == self.OUTPUT_LID:
+        elif output == Output.lid:
             func = self.robot.set_lid
             value = 1 - self.robot.lid_command
-        elif output == self.OUTPUT_HEATER:
+        elif output == Output.heater:
             func = self.robot.set_heater
             value = 1 - self.robot.heater_command
-        elif output == self.OUTPUT_HEATER_AIR:
+        elif output == Output.heater_air:
             func = self.robot.set_heater_air
             value = 1 - self.robot.heater_air_command
         else:
