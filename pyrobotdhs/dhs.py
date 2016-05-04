@@ -40,7 +40,6 @@ class RobotDHS(DHS):
         self.robot.delegate = self
 
         self._foreground_operation = None
-        self._needs_clear = True
 
     def setup(self):
         # Start DHS.loop to process incoming dcss messages
@@ -61,7 +60,8 @@ class RobotDHS(DHS):
         self.send_set_robot_force_string('right')
         self.send_calibration_timestamps()
 
-    def operation_callback(self, operation, handle, stage, message=None, error=None):
+    def operation_callback(self, operation, handle, stage, message=None,
+                           error=None):
         self.log.info('operation_callback: %r %r %r %r %r',
                       operation, handle, stage, message, error)
         if stage == 'end':
@@ -87,18 +87,16 @@ class RobotDHS(DHS):
 
     @property
     def needs_clear(self):
-        # TODO: temporary hack
-        return self._needs_clear
+        return bool(self.robot.status & RobotStatus.need_clear)
 
     @property
     def needs_reset(self):
-        # TODO: temporary hack
-        return False
+        return bool(self.robot.status & RobotStatus.need_reset)
 
     @property
     def needs_calibration(self):
-        # TODO: temporary hack
-        return False
+        # TODO: Check .NET behaviour
+        return bool(self.robot.status & RobotStatus.need_cal_all)
 
     @property
     def warning(self):
@@ -130,13 +128,11 @@ class RobotDHS(DHS):
 
     @property
     def needs_toolset_calibration(self):
-        # TODO: temporary hack
-        return False
+        return bool(self.robot.status & RobotStatus.need_cal_magnet)
 
     @property
     def needs_cassette_calibration(self):
-        # TODO: temporary hack
-        return False
+        return bool(self.robot.status & RobotStatus.need_cal_cassette)
 
     @property
     def ln2(self):
@@ -151,17 +147,6 @@ class RobotDHS(DHS):
     def current_port(self):
         # TODO: temporary hack
         return ''
-
-    @property
-    def status(self):
-        status = 0
-        if self.needs_clear:
-            status |= RobotStatus.need_clear
-        if self.robot.safety_gate:
-            status |= RobotStatus.reason_safeguard
-        if self.robot.at_home != 1:
-            status |= RobotStatus.reason_not_home
-        return status
 
     @property
     def state(self):
@@ -283,7 +268,7 @@ class RobotDHS(DHS):
         """
         msg = ('htos_set_string_completed robot_status '
                'normal '  # Always "normal"
-               'status: {0.status:d} '
+               'status: {0.robot.status} '
                'need_reset: {0.needs_reset:d} '
                'need_cal: {0.needs_calibration:d} '
                'state: {{{0.state}}} '
@@ -417,14 +402,12 @@ class RobotDHS(DHS):
             self.log.info('Operation robot_config %s is not handled' % task)
 
     def robot_config_clear(self, operation):
-        self._needs_clear = False  # TODO: Actually check!
-        self.send_set_status_string()
-        operation.operation_completed('OK')
+        # TODO: Call SPEL operation
+        operation.operation_error('not implemented')
 
     def robot_config_clear_all(self, operation):
-        self._needs_clear = False  # TODO: Actually check!
-        self.send_set_status_string()
-        operation.operation_completed('OK')
+        # TODO: Call SPEL operation
+        operation.operation_error('not implemented')
 
     def robot_config_hw_output_switch(self, operation, output):
         output = int(output)

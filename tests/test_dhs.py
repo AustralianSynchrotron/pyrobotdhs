@@ -1,7 +1,7 @@
 import pytest
 from mock import MagicMock, call
 
-from aspyrobotmx.codes import HolderType, PortState
+from aspyrobotmx.codes import HolderType, PortState, RobotStatus
 
 from pyrobotdhs import RobotDHS
 
@@ -221,4 +221,37 @@ def test_send_set_input_string(dhs):
     dhs.send_set_input_string()
     expected_msg = ('htos_set_string_completed robot_input normal '
                     '0 0 0 0 0 0 0 0 1 1 0 1 1 1 0 0')
+    assert dhs.send_xos3.call_args == call(expected_msg)
+
+
+def test_send_set_status_string(dhs):
+    dhs.send_xos3 = MagicMock()
+    status = (RobotStatus.need_clear | RobotStatus.reason_collision |
+              RobotStatus.need_cal_cassette)
+    dhs.robot.configure_mock(
+        status=status,
+        task_message='all good',
+        task_progress='1 of 10',
+        holder_types={'left': HolderType.normal},
+        sample_locations={'goniometer': ['left', 0]},
+        pins_lost=123,
+        pins_mounted=456,
+    )
+    dhs.send_set_status_string()
+    expected_msg = ('htos_set_string_completed robot_status '
+                    'normal '
+                    'status: 32777 '
+                    'need_reset: 0 '
+                    'need_cal: 1 '
+                    'state: {idle} '
+                    'warning: {} '
+                    'cal_msg: {all good} '
+                    'cal_step: {1 of 10} '
+                    'mounted: {l 1 A} '
+                    'pin_lost: 123 '
+                    'pin_mounted: 456 '
+                    'manual_mode: 0 '
+                    'need_mag_cal: 0 '
+                    'need_cas_cal: 1 '
+                    'need_clear: 1')
     assert dhs.send_xos3.call_args == call(expected_msg)
