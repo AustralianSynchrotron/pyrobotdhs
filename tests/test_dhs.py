@@ -1,7 +1,7 @@
 import pytest
 from mock import MagicMock, call
 
-from aspyrobotmx.codes import HolderType, PortState, RobotStatus
+from aspyrobotmx.codes import HolderType, PortState, RobotStatus, DumbbellState
 
 from pyrobotdhs import RobotDHS
 
@@ -100,6 +100,7 @@ def test_send_set_state_string(dhs):
     dhs.send_xos3 = MagicMock()
     # TODO: Test setting current_sample
     dhs.robot.configure_mock(
+        dumbbell_state=1,
         closest_point=18,
         ln2_level=0,
         holder_types={'left': HolderType.normal},
@@ -113,7 +114,7 @@ def test_send_set_state_string(dhs):
     dhs.send_set_state_string()
     assert dhs.send_xos3.call_args == call(
         'htos_set_string_completed robot_state normal '
-        '{on tong} {in cradle} '
+        '{on tong} {in_cradle} '
         'P18 '
         'no '
         '{} '
@@ -267,3 +268,21 @@ def test_send_set_status_string(dhs):
 def test_sample_state(dhs, sample_locations, value):
     dhs.robot.configure_mock(sample_locations=sample_locations)
     assert dhs.sample_state == value
+
+
+@pytest.mark.parametrize('code,value', [
+    (None, 'bad'),
+    (int(DumbbellState.unknown), 'unknown'),
+    (int(DumbbellState.in_cradle), 'in_cradle'),
+])
+def test_dumbbell_state(dhs, code, value):
+    dhs.robot.configure_mock(dumbbell_state=code)
+    assert dhs.dumbbell_state == value
+
+
+@pytest.mark.parametrize('level,expected_str', [
+    (None, 'wrong'), (0, 'no'), (1, 'yes'),
+])
+def test_ln2_property(dhs, level, expected_str):
+    dhs.robot.configure_mock(ln2_level=level)
+    assert dhs.ln2 == expected_str

@@ -2,7 +2,7 @@ from functools import partial
 from threading import Thread
 from enum import IntEnum
 
-from aspyrobotmx.codes import HolderType, PortState, RobotStatus
+from aspyrobotmx.codes import HolderType, PortState, RobotStatus, DumbbellState
 from dcss import Server as DHS
 
 
@@ -122,8 +122,10 @@ class RobotDHS(DHS):
 
     @property
     def dumbbell_state(self):
-        # TODO: temporary hack
-        return 'in cradle'
+        try:
+            return DumbbellState(self.robot.dumbbell_state).name
+        except ValueError:
+            return 'bad'
 
     @property
     def manual_mode(self):
