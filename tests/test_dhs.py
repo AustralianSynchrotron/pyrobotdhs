@@ -113,7 +113,7 @@ def test_send_set_state_string(dhs):
     dhs.send_set_state_string()
     assert dhs.send_xos3.call_args == call(
         'htos_set_string_completed robot_state normal '
-        '{on gonio} {in cradle} '
+        '{on tong} {in cradle} '
         'P18 '
         'no '
         '{} '
@@ -255,3 +255,15 @@ def test_send_set_status_string(dhs):
                     'need_cas_cal: 1 '
                     'need_clear: 1')
     assert dhs.send_xos3.call_args == call(expected_msg)
+
+
+@pytest.mark.parametrize('sample_locations,value', [
+    ({}, 'no'),
+    ({'cavity': ['left', 0]}, 'on tong'),
+    ({'picker': ['left', 0]}, 'on picker'),
+    ({'placer': ['left', 0]}, 'on placer'),
+    ({'goniometer': ['left', 0]}, 'on gonio'),
+])
+def test_sample_state(dhs, sample_locations, value):
+    dhs.robot.configure_mock(sample_locations=sample_locations)
+    assert dhs.sample_state == value

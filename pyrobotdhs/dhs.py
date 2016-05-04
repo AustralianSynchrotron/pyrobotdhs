@@ -113,8 +113,12 @@ class RobotDHS(DHS):
 
     @property
     def sample_state(self):
-        # TODO: temporary hack
-        return 'on gonio'
+        location_to_state = {'cavity': 'on tong', 'picker': 'on picker',
+                             'placer': 'on placer', 'goniometer': 'on gonio'}
+        location = next((location_to_state[loc]
+                         for loc, sample in self.robot.sample_locations.items()
+                         if sample), 'no')
+        return location
 
     @property
     def dumbbell_state(self):
@@ -292,7 +296,7 @@ class RobotDHS(DHS):
             {invalid} {invalid} {invalid}
             27 27 0 0
         """
-        # sample_state: no / on tong / on placer / on picker / on goni / bad state
+        # sample_state: no / on tong / on placer / on picker / on gonio / bad state
         # dumbbell_state: out / raised / in cradle / in tong / bad state
         # current_point: P0 / P1 / ... / Wrong
         # ln2: no / yes / wrong
