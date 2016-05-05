@@ -7,6 +7,10 @@ with open('pyrobotdhs/__init__.py') as file:
 setup(
     name='pyrobotdhs',
     version=version,
+    maintainer='Robbie Clarken',
+    maintainer_email='robbie.clarken@synchrotron.org.au',
+    url='https://github.com/AustralianSynchrotron/pyrobotdhs',
+    license='MIT',
     packages=['pyrobotdhs'],
     install_requires=[
         'dcss',

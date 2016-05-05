@@ -189,6 +189,8 @@ class RobotDHS(DHS):
         self.send_set_robot_force_string('middle')
         self.send_set_robot_force_string('right')
 
+    def on_status(self, _): self.send_set_status_string()
+
     def on_at_home(self, _): self.send_set_status_string()
 
     def on_lid_command(self, _): self.send_set_output_string()
@@ -486,11 +488,11 @@ class RobotDHS(DHS):
         }
         self.robot.probe(spec, callback=partial(self.operation_callback, operation))
 
-    def robot_calibrate(self, operation, target, *run_args):
-        run_args = ' '.join(run_args)
+    def robot_calibrate(self, operation, target, *task_args):
+        task_args = ' '.join(task_args)
         if target == 'magnet_post':
             target = 'toolset'
-        self.robot.calibrate(target=target, run_args=run_args,
+        self.robot.calibrate(target=target, task_args=task_args,
                              callback=partial(self.operation_callback, operation))
 
     def prepare_mount_crystal(self, operation, *args):
