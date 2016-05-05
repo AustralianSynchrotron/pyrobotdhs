@@ -408,12 +408,12 @@ class RobotDHS(DHS):
             self.log.info('Operation robot_config %s is not handled' % task)
 
     def robot_config_clear(self, operation):
-        # TODO: Call SPEL operation
-        operation.operation_error('not implemented')
+        callback = partial(self.operation_callback, operation)
+        self.robot.clear('status', callback=callback)
 
     def robot_config_clear_all(self, operation):
-        # TODO: Call SPEL operation
-        operation.operation_error('not implemented')
+        callback = partial(self.operation_callback, operation)
+        self.robot.clear('all', callback=callback)
 
     def robot_config_hw_output_switch(self, operation, output):
         output = int(output)
