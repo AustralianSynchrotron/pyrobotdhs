@@ -39,8 +39,6 @@ class RobotDHS(DHS):
         self.robot = robot
         self.robot.delegate = self
 
-        self._foreground_operation = None
-
     def setup(self):
         # Start DHS.loop to process incoming dcss messages
         self.recv_loop_thread = Thread(target=self.loop, daemon=True)
@@ -73,17 +71,6 @@ class RobotDHS(DHS):
     # ***************************************************************
     # ******************** DHS attributes ***************************
     # ***************************************************************
-
-    @property
-    def foreground_operation(self):
-        # TODO: Should this be handled with a server attribute?
-        return self._foreground_operation
-
-    @foreground_operation.setter
-    def foreground_operation(self, value):
-        if self._foreground_operation != value:
-            self._foreground_operation = value
-            self.send_set_status_string()
 
     @property
     def needs_clear(self):
@@ -156,9 +143,8 @@ class RobotDHS(DHS):
 
     @property
     def state(self):
-        if self.foreground_operation:
-            return self.foreground_operation.name
-        return 'idle'
+        state = self.robot.current_task or 'unknown'
+        return state.lower()
 
     # ****************************************************************
     # ******************** EPICS callbacks ***************************
@@ -190,6 +176,8 @@ class RobotDHS(DHS):
         self.send_set_robot_force_string('right')
 
     def on_status(self, _): self.send_set_status_string()
+
+    def on_current_task(self, _): self.send_set_status_string()
 
     def on_at_home(self, _): self.send_set_status_string()
 
