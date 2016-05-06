@@ -34,19 +34,22 @@ class Output(IntEnum):
 class RobotDHS(DHS):
 
     def __init__(self, dcss, robot):
-
         super(RobotDHS, self).__init__('robot', dcss)
         self.robot = robot
         self.robot.delegate = self
 
     def setup(self):
-        # Start DHS.loop to process incoming dcss messages
+        """
+        Start DHS.loop to process incoming dcss messages
+
+        """
         self.recv_loop_thread = Thread(target=self.loop, daemon=True)
         self.recv_loop_thread.start()
 
     def login(self):
         """
         Called by DCSS.connect() after DCSS connection established.
+
         """
         super(RobotDHS, self).login()
         self.robot.setup()
@@ -60,6 +63,12 @@ class RobotDHS(DHS):
 
     def operation_callback(self, operation, handle, stage, message=None,
                            error=None):
+        """
+        Callback function to be supplied when starting operations. When the
+        operation stage reaches 'end' will send operation_completed or
+        operation_error depending on whether an error occured.
+
+        """
         self.log.info('operation_callback: %r %r %r %r %r',
                       operation, handle, stage, message, error)
         if stage == 'end':
@@ -74,25 +83,41 @@ class RobotDHS(DHS):
 
     @property
     def needs_clear(self):
+        """
+        Returns (bool): Determines whether the robot status flags needs to be
+            cleared via then inspect button in BluIce.
+
+        """
         return bool(self.robot.status & RobotStatus.need_clear)
 
     @property
     def needs_reset(self):
+        """
+        Returns (bool): Whether the robot needs a reset via robot_config
+            clear_all in BluIce.
+
+        """
         return bool(self.robot.status & RobotStatus.need_reset)
 
     @property
     def needs_calibration(self):
+        """
+        Returns (bool): Whether the robot needs calibration.
+
+        """
         # TODO: Check .NET behaviour
         return bool(self.robot.status & RobotStatus.need_cal_all)
 
     @property
     def warning(self):
-        # TODO: temporary hack
-        return ''
+        return ''  # Not current being used.
 
     @property
     def mounted(self):
-        # TODO: Test
+        """
+        Returns (str): The pin mounted in dcss format "l 1 A".
+
+        """
         sample_on_goniometer = self.robot.sample_locations['goniometer']
         if not sample_on_goniometer:
             return ''
@@ -100,6 +125,10 @@ class RobotDHS(DHS):
 
     @property
     def sample_state(self):
+        """
+        Returns (str): The sample location in dcss format.
+
+        """
         location_to_state = {'cavity': 'on tong', 'picker': 'on picker',
                              'placer': 'on placer', 'goniometer': 'on gonio'}
         location = next((location_to_state[loc]
@@ -109,6 +138,10 @@ class RobotDHS(DHS):
 
     @property
     def dumbbell_state(self):
+        """
+        Returns (str): The dumbbell location.
+
+        """
         try:
             return DumbbellState(self.robot.dumbbell_state).name
         except ValueError:
@@ -116,19 +149,30 @@ class RobotDHS(DHS):
 
     @property
     def manual_mode(self):
-        # TODO: temporary hack
-        return False
+        return False  # TODO: Check whether needed.
 
     @property
     def needs_toolset_calibration(self):
+        """
+        Returns (bool): Whether the robot needs a toolset calibration.
+
+        """
         return bool(self.robot.status & RobotStatus.need_cal_magnet)
 
     @property
     def needs_cassette_calibration(self):
+        """
+        Returns (bool): Whether the robot needs a cassette calibration.
+
+        """
         return bool(self.robot.status & RobotStatus.need_cal_cassette)
 
     @property
     def ln2(self):
+        """
+        Returns (str): LN2 is present in dcss format.
+
+        """
         if self.robot.ln2_level == 0:
             return 'no'
         elif self.robot.ln2_level == 1:
@@ -138,11 +182,14 @@ class RobotDHS(DHS):
 
     @property
     def current_port(self):
-        # TODO: temporary hack
-        return ''
+        return ''  # TODO: Needed?
 
     @property
     def state(self):
+        """
+        Returns (str): Current task being executed.
+
+        """
         state = self.robot.current_task or 'unknown'
         return state.lower()
 
@@ -151,6 +198,11 @@ class RobotDHS(DHS):
     # ****************************************************************
 
     def on_task_message(self, value):
+        """
+        When a task message is received broadcast the robot_status string to
+        update the calibration message and also log to BluIce.
+
+        """
         self.send_set_status_string()
         try:
             level, message = value.split(' ', 1)
@@ -251,16 +303,21 @@ class RobotDHS(DHS):
 
     def send_set_status_string(self):
         """
-        "status:" status_num         0-400000000
-        "need_reset:" need_reset         0 or 1
-        "need_cal:" need_calibration   0 or 1
-        "state:" state              {idle} {prepare_mount_crystal}
-        "warning:" warning message    {empty port in mounting}
-        "cal_msg:" calibration message {touching seat} {....}
-        "cal_step:" calibration steps  {d of d} {+d} {-d}
-        "mounted:" {} or port position been mounted like {l 4 A}
-        "pin_lost:" number of pin lost
-        "pin_mounted:" number of pin mounted from last reset
+        Send the robot_status string to the dcss.
+
+        Components of the message are:
+
+            status: Status code. 0-400000000
+            need_reset: Robot needs reset. 0 or 1
+            need_cal: Robot needs calibration. 0 or 1
+            state: Current task. {idle}, {prepare_mount_crystal}
+            warning: Warning message. {empty port in mounting}
+            cal_msg: Calibration message. {touching seat}
+            cal_step: Calibration progress. {d of d} {+d} {-d}
+            mounted: {} or port position that has been mounted like {l 4 A}
+            pin_lost: Number of pins lost.
+            pin_mounted: Number of pins mounted since last reset.
+
         """
         msg = ('htos_set_string_completed robot_status '
                'normal '  # Always "normal"
@@ -282,31 +339,37 @@ class RobotDHS(DHS):
 
     def send_set_state_string(self):
         """
-        htos_set_string_completed robot_state normal
-            {on gonio} {in cradle}
-            P18 no {m 2 A} 110 1 1 1 0 0
-            {invalid} {invalid} {invalid}
-            27 27 0 0
-        """
-        # sample_state: no / on tong / on placer / on picker / on gonio / bad state
-        # dumbbell_state: out / raised / in cradle / in tong / bad state
-        # current_point: P0 / P1 / ... / Wrong
-        # ln2: no / yes / wrong
-        # current_port: m 2 A / invalid
-        # pins_mounted pins_lost pins_mounted_before_lost
-        # sample_on_goni: 1, 0
-        # pins_stripped pins_stripped_short_trip
-        # tong_port: m 2 A / invalid
-        # picker_port: m 2 A / invalid
-        # placer_port: m 2 A / invalid
-        # num_puck_pin_mounted num_puck_pin_mounted_short_trip
-        # num_pin_moved num_puck_pin_moved
+        Send the robot_state string to the dcss.
 
+        Eg:
+            htos_set_string_completed robot_state normal
+                {on gonio} {in cradle}
+                P18 no {m 2 A} 110 1 1 1 0 0
+                {invalid} {invalid} {invalid}
+                27 27 0 0
+
+        Components of string are:
+
+            sample_state: no / on tong / on placer / on picker /
+                          on gonio / bad state
+            dumbbell_state: out / raised / in cradle / in tong / bad state
+            current_point: P0 / P1 / ... / Wrong
+            ln2: no / yes / wrong
+            current_port: m 2 A / invalid
+            pins_mounted pins_lost pins_mounted_before_lost
+            sample_on_goni: 1, 0
+            pins_stripped pins_stripped_short_trip
+            tong_port: m 2 A / invalid
+            picker_port: m 2 A / invalid
+            placer_port: m 2 A / invalid
+            num_puck_pin_mounted num_puck_pin_mounted_short_trip
+            num_pin_moved num_puck_pin_moved
+
+        """
         sample_is_on_goni = bool(self.robot.sample_locations['goniometer'])
         tong_port = self.port_tuple_to_str(self.robot.sample_locations['cavity'])
         picker_port = self.port_tuple_to_str(self.robot.sample_locations['picker'])
         placer_port = self.port_tuple_to_str(self.robot.sample_locations['placer'])
-
         msg = (
            'htos_set_string_completed robot_state normal '
            '{{{0.sample_state}}} '
@@ -380,10 +443,10 @@ class RobotDHS(DHS):
     # ****************************************************************
 
     def stoh_register_string(self, *args, **kwargs):
-        pass
+        pass  # Don't care.
 
     def stoh_register_operation(self, *args, **kwargs):
-        pass
+        pass  # Don't care.
 
     def stoh_abort_all(self, operation, *args):
         """ Called by BluIce Abort button """
@@ -391,11 +454,12 @@ class RobotDHS(DHS):
         pass
 
     def robot_config(self, operation, task, *args):
-        func = getattr(self, 'robot_config_' + task, None)
-        if func:
-            func(operation, *args)
-        else:
+        try:
+            func = getattr(self, 'robot_config_' + task)
+        except AttributeError:
             self.log.info('Operation robot_config %s is not handled' % task)
+        else:
+            func(operation, *args)
 
     def robot_config_clear(self, operation):
         callback = partial(self.operation_callback, operation)
@@ -425,19 +489,18 @@ class RobotDHS(DHS):
 
     def robot_config_reset_cassette(self, operation):
         """ Called by the "reset all to unknown" BluIce button """
-        # TODO: Set holders
-        ports = {'left': [1] * 96, 'middle': [1] * 96, 'right': [1] * 96}
         callback = partial(self.operation_callback, operation)
-        self.robot.reset_ports(ports, callback=callback)
+        self.robot.reset_holders(['left', 'middle', 'right'], callback=callback)
 
     def robot_config_set_index_state(self, operation, start, port_count, state):
         """
-        Called by right-clicking ports in BluIce
+        Called by right-clicking ports in BluIce.
 
         Examples:
             left cassette column A 1-8 to bad: start='1', port_count='8', state='b'
             middle puck A port 1 to bad: start='98', port_count='1', state='b'
             middle puck B port 1 to bad: start='114', port_count='1', state='b'
+
         """
         start, port_count = int(start), int(port_count)
         samples_and_type_per_position = SAMPLES_PER_POSITION + 1
@@ -447,19 +510,18 @@ class RobotDHS(DHS):
         # TODO: Set holder bad if start == 0
         start -= 1
         end = start + port_count
-        ports = {position: [0] * 96 for position in ['left', 'middle', 'right']}
+        ports = {position: [0] * SAMPLES_PER_POSITION
+                 for position in ['left', 'middle', 'right']}
         ports[position][start:end] = [1] * port_count
         callback = partial(self.operation_callback, operation)
         self.robot.reset_ports(ports, callback=callback)
 
     def robot_config_set_port_state(self, operation, port, state):
         """ Called by the reset cassette status to unknown button in BluIce """
-        # TODO: Test on robot
         if port.endswith('X0') and state == 'u':
             position = {'l': 'left', 'm': 'middle', 'r': 'right'}.get(port[0])
             callback = partial(self.operation_callback, operation)
-            self.robot.set_holder_type(position, HolderType.unknown,
-                                       callback=callback)
+            self.robot.reset_holders([position], callback=callback)
         else:
             operation.operation_error('Not implemented')
 
@@ -522,7 +584,7 @@ class RobotDHS(DHS):
 
     def robot_standby(self, operation, *args):
         # TODO: Does anything need to be done here?
-        finalize_operation(operation, {})
+        operation.operation_completed('OK')
 
     def port_tuple_to_str(self, port_tuple):
         if not port_tuple:
@@ -541,11 +603,3 @@ class RobotDHS(DHS):
                                                     puck=puck, row=row)
         else:
             return 'invalid'
-
-
-def finalize_operation(operation, result):
-    error = result.get('error')
-    if error:
-        operation.operation_error(error)
-    else:
-        operation.operation_completed('OK')

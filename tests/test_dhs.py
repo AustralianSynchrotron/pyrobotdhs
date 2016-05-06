@@ -43,8 +43,7 @@ def test_robot_config_hw_output_switch_for_heater_air(dhs):
 
 def test_robot_config_reset_cassette(dhs):
     dhs.robot_config_reset_cassette(MagicMock())
-    expected_ports = {'left': [1] * 96, 'middle': [1] * 96, 'right': [1] * 96}
-    assert dhs.robot.reset_ports.call_args[0][0] == expected_ports
+    assert dhs.robot.reset_holders.call_args[0] == (['left', 'middle', 'right'],)
 
 
 def test_robot_config_set_index_state_left_column_A(dhs):
@@ -65,7 +64,7 @@ def test_robot_config_set_index_state_middle_adaptor_mB1(dhs):
 
 def test_robot_config_set_port_state(dhs):
     dhs.robot_config_set_port_state(MagicMock(), 'lX0', 'u')
-    assert dhs.robot.set_holder_type.call_args[0] == ('left', HolderType.unknown)
+    assert dhs.robot.reset_holders.call_args[0] == (['left'],)
 
 
 def test_system_error_message_updates_dcss(dhs):
@@ -135,12 +134,6 @@ def test_robot_config_probe(dhs):
     dhs.robot_config_probe(mock_operation, *ports)
     expected_spec = {'left': [1] * 96, 'middle': [0] * 96, 'right': [0] * 96}
     assert dhs.robot.probe.call_args[0][0] == expected_spec
-
-
-def test_setting_foreground_operation(dhs):
-    dhs.send_set_status_string = MagicMock()
-    dhs.foreground_operation = 'go'
-    assert dhs.send_set_status_string.called is True
 
 
 def test_prepare_mount_crystal(dhs):
@@ -231,6 +224,7 @@ def test_send_set_status_string(dhs):
               RobotStatus.need_cal_cassette)
     dhs.robot.configure_mock(
         status=status,
+        current_task='idle',
         task_message='all good',
         task_progress='1 of 10',
         holder_types={'left': HolderType.normal},
