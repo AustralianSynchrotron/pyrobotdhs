@@ -462,6 +462,12 @@ class RobotDHS(DHS):
             func(operation, *args)
 
     def robot_config_clear(self, operation):
+        """
+        Called by BluIce "Inspected" button.
+        """
+        self.robot_config_clear_status(operation)
+
+    def robot_config_clear_status(self, operation):
         callback = partial(self.operation_callback, operation)
         self.robot.clear('status', callback=callback)
 
