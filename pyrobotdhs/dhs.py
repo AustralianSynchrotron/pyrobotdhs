@@ -2,7 +2,8 @@ from functools import partial
 from threading import Thread
 from enum import IntEnum
 
-from aspyrobotmx.codes import HolderType, PortState, RobotStatus, DumbbellState
+from aspyrobotmx.codes import (HolderType, PortState, RobotStatus, DumbbellState,
+                               SampleState)
 from dcss import Server as DHS
 
 
@@ -533,6 +534,17 @@ class RobotDHS(DHS):
 
     def robot_config_reset_mounted_counter(self, operation):
         self.robot.run_operation('reset_mount_counters')
+
+    def robot_config_set_mounted(self, operation, arg):
+        if len(arg) != 3:
+            return operation.operation_error('Invalid argument')
+        position, column, port = arg
+        position = {'l': 'left', 'm': 'middle', 'r': 'right'}[position]
+        port = int(port)
+        state = int(SampleState.goniometer)
+        callback = partial(self.operation_callback, operation)
+        self.robot.set_sample_state(position, column, port, state,
+                                    callback=callback)
 
     def robot_config_probe(self, operation, *ports):
         ports = [int(p) for p in ports]

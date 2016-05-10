@@ -1,7 +1,8 @@
 import pytest
 from mock import MagicMock, call
 
-from aspyrobotmx.codes import HolderType, PortState, RobotStatus, DumbbellState
+from aspyrobotmx.codes import (HolderType, PortState, RobotStatus, DumbbellState,
+                               SampleState)
 
 from pyrobotdhs import RobotDHS
 
@@ -280,3 +281,10 @@ def test_dumbbell_state(dhs, code, value):
 def test_ln2_property(dhs, level, expected_str):
     dhs.robot.configure_mock(ln2_level=level)
     assert dhs.ln2 == expected_str
+
+
+def test_robot_config_set_mounted(dhs):
+    mock_robot = dhs.robot
+    dhs.robot_config_set_mounted(MagicMock(), 'mJ2')
+    expected_args = ('middle', 'J', 2, SampleState.goniometer)
+    assert mock_robot.set_sample_state.call_args[0] == expected_args
