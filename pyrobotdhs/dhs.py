@@ -268,6 +268,7 @@ class RobotDHS(DHS):
 
     def on_sample_locations(self, _):
         self.send_set_state_string()
+        self.send_set_status_string()
         self.send_set_robot_cassette_string()
 
     # ****************************************************************
@@ -368,6 +369,9 @@ class RobotDHS(DHS):
 
         """
         sample_is_on_goni = bool(self.robot.sample_locations['goniometer'])
+        goniometer_port = self.port_tuple_to_str(
+            self.robot.sample_locations['goniometer']
+        )
         tong_port = self.port_tuple_to_str(self.robot.sample_locations['cavity'])
         picker_port = self.port_tuple_to_str(self.robot.sample_locations['picker'])
         placer_port = self.port_tuple_to_str(self.robot.sample_locations['placer'])
@@ -377,7 +381,7 @@ class RobotDHS(DHS):
            '{{{0.dumbbell_state}}} '
            'P{robot.closest_point} '
            '{0.ln2} '
-           '{{{0.current_port}}} '
+           '{{{goniometer_port}}} '
            '0 0 0 '
            '{sample_is_on_goni:d} '
            '0 0 '
@@ -387,8 +391,8 @@ class RobotDHS(DHS):
            '0 0 '
            '0 0'
         ).format(self, robot=self.robot, sample_is_on_goni=sample_is_on_goni,
-                 tong_port=tong_port, picker_port=picker_port,
-                 placer_port=placer_port)
+                 goniometer_port=goniometer_port, tong_port=tong_port,
+                 picker_port=picker_port, placer_port=placer_port)
         self.send_xos3(msg)
 
     def send_set_robot_cassette_string(self):
@@ -536,15 +540,18 @@ class RobotDHS(DHS):
         self.robot.run_operation('reset_mount_counters')
 
     def robot_config_set_mounted(self, operation, arg):
-        if len(arg) != 3:
-            return operation.operation_error('Invalid argument')
-        position, column, port = arg
-        position = {'l': 'left', 'm': 'middle', 'r': 'right'}[position]
-        port = int(port)
-        state = int(SampleState.goniometer)
-        callback = partial(self.operation_callback, operation)
-        self.robot.set_sample_state(position, column, port, state,
-                                    callback=callback)
+        try:
+            position, column, port = arg
+            position = {'l': 'left', 'm': 'middle', 'r': 'right'}[position.lower()]
+            column = column.upper()
+            port = int(port)
+            state = int(SampleState.goniometer)
+        except:
+            operation.operation_error('Invalid argument')
+        else:
+            callback = partial(self.operation_callback, operation)
+            self.robot.set_sample_state(position, column, port, state,
+                                        callback=callback)
 
     def robot_config_probe(self, operation, *ports):
         ports = [int(p) for p in ports]
