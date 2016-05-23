@@ -309,16 +309,16 @@ class RobotDHS(DHS):
 
         Components of the message are:
 
-            status: Status code. 0-400000000
-            need_reset: Robot needs reset. 0 or 1
-            need_cal: Robot needs calibration. 0 or 1
-            state: Current task. {idle}, {prepare_mount_crystal}
-            warning: Warning message. {empty port in mounting}
-            cal_msg: Calibration message. {touching seat}
-            cal_step: Calibration progress. {d of d} {+d} {-d}
-            mounted: {} or port position that has been mounted like {l 4 A}
-            pin_lost: Number of pins lost.
-            pin_mounted: Number of pins mounted since last reset.
+            * status: Status code. 0-400000000
+            * need_reset: Robot needs reset. 0 or 1
+            * need_cal: Robot needs calibration. 0 or 1
+            * state: Current task. {idle}, {prepare_mount_crystal}
+            * warning: Warning message. {empty port in mounting}
+            * cal_msg: Calibration message. {touching seat}
+            * cal_step: Calibration progress. {d of d} {+d} {-d}
+            * mounted: {} or port position that has been mounted like {l 4 A}
+            * pin_lost: Number of pins lost.
+            * pin_mounted: Number of pins mounted since last reset.
 
         """
         msg = ('htos_set_string_completed robot_status '
@@ -352,20 +352,20 @@ class RobotDHS(DHS):
 
         Components of string are:
 
-            sample_state: no / on tong / on placer / on picker /
-                          on gonio / bad state
-            dumbbell_state: out / raised / in cradle / in tong / bad state
-            current_point: P0 / P1 / ... / Wrong
-            ln2: no / yes / wrong
-            current_port: m 2 A / invalid
-            pins_mounted pins_lost pins_mounted_before_lost
-            sample_on_goni: 1, 0
-            pins_stripped pins_stripped_short_trip
-            tong_port: m 2 A / invalid
-            picker_port: m 2 A / invalid
-            placer_port: m 2 A / invalid
-            num_puck_pin_mounted num_puck_pin_mounted_short_trip
-            num_pin_moved num_puck_pin_moved
+            * sample_state: no / on tong / on placer / on picker / \
+                on gonio / bad state
+            * dumbbell_state: out / raised / in cradle / in tong / bad state
+            * current_point: P0 / P1 / ... / Wrong
+            * ln2: no / yes / wrong
+            * current_port: m 2 A / invalid
+            * pins_mounted pins_lost pins_mounted_before_lost
+            * sample_on_goni: 1, 0
+            * pins_stripped pins_stripped_short_trip
+            * tong_port: m 2 A / invalid
+            * picker_port: m 2 A / invalid
+            * placer_port: m 2 A / invalid
+            * num_puck_pin_mounted num_puck_pin_mounted_short_trip
+            * num_pin_moved num_puck_pin_moved
 
         """
         sample_is_on_goni = bool(self.robot.sample_locations['goniometer'])
