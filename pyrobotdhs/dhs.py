@@ -26,6 +26,12 @@ PORT_STATE_MAP = {
 
 
 class Output(IntEnum):
+    """Indexes of the digital outputs.
+
+    This Enum maps the indexes as they appear on the BluIce Robot Advanced tab.
+    They may or may not correspond to the physical outputs of the robot I/O box.
+
+    """
     gripper = 1
     lid = 3
     heater = 14
@@ -40,16 +46,14 @@ class RobotDHS(DHS):
         self.robot.delegate = self
 
     def setup(self):
-        """
-        Start DHS.loop to process incoming dcss messages
+        """Start DHS.loop to process incoming DCSS messages
 
         """
         self.recv_loop_thread = Thread(target=self.loop, daemon=True)
         self.recv_loop_thread.start()
 
     def login(self):
-        """
-        Called by DCSS.connect() after DCSS connection established.
+        """Called by DCSS.connect() after DCSS connection established.
 
         """
         super(RobotDHS, self).login()
@@ -64,10 +68,10 @@ class RobotDHS(DHS):
 
     def operation_callback(self, operation, handle, stage, message=None,
                            error=None):
-        """
-        Callback function to be supplied when starting operations. When the
-        operation stage reaches 'end' will send operation_completed or
-        operation_error depending on whether an error occured.
+        """Callback function to be supplied when starting operations.
+
+        When the operation stage reaches 'end' will send operation_completed or
+        operation_error depending on whether an error occurred.
 
         """
         self.log.info('operation_callback: %r %r %r %r %r',
@@ -84,28 +88,22 @@ class RobotDHS(DHS):
 
     @property
     def needs_clear(self):
-        """
-        Returns (bool): Determines whether the robot status flags needs to be
-            cleared via then inspect button in BluIce.
+        """Whether the robot status needs to be cleared.
+
+        If `True` the status flags will need to be reset via the BluIce
+        Inspected button.
 
         """
         return bool(self.robot.status & RobotStatus.need_clear)
 
     @property
     def needs_reset(self):
-        """
-        Returns (bool): Whether the robot needs a reset via robot_config
-            clear_all in BluIce.
-
-        """
+        """Whether the robot needs a reset via robot_config clear_all in BluIce."""
         return bool(self.robot.status & RobotStatus.need_reset)
 
     @property
     def needs_calibration(self):
-        """
-        Returns (bool): Whether the robot needs calibration.
-
-        """
+        """Whether the robot needs calibration."""
         # TODO: Check .NET behaviour
         return bool(self.robot.status & RobotStatus.need_cal_all)
 
@@ -115,10 +113,7 @@ class RobotDHS(DHS):
 
     @property
     def mounted(self):
-        """
-        Returns (str): The pin mounted in dcss format "l 1 A".
-
-        """
+        """The pin mounted in DCSS format: `'l 1 A'`."""
         sample_on_goniometer = self.robot.sample_locations['goniometer']
         if not sample_on_goniometer:
             return ''
@@ -126,10 +121,7 @@ class RobotDHS(DHS):
 
     @property
     def sample_state(self):
-        """
-        Returns (str): The sample location in dcss format.
-
-        """
+        """The sample location in DCSS format."""
         location_to_state = {'cavity': 'on tong', 'picker': 'on picker',
                              'placer': 'on placer', 'goniometer': 'on gonio'}
         location = next((location_to_state[loc]
@@ -139,10 +131,7 @@ class RobotDHS(DHS):
 
     @property
     def dumbbell_state(self):
-        """
-        Returns (str): The dumbbell location.
-
-        """
+        """The dumbbell location."""
         try:
             return DumbbellState(self.robot.dumbbell_state).name
         except ValueError:
@@ -154,26 +143,17 @@ class RobotDHS(DHS):
 
     @property
     def needs_toolset_calibration(self):
-        """
-        Returns (bool): Whether the robot needs a toolset calibration.
-
-        """
+        """Whether the robot needs a toolset calibration."""
         return bool(self.robot.status & RobotStatus.need_cal_magnet)
 
     @property
     def needs_cassette_calibration(self):
-        """
-        Returns (bool): Whether the robot needs a cassette calibration.
-
-        """
+        """Whether the robot needs a cassette calibration."""
         return bool(self.robot.status & RobotStatus.need_cal_cassette)
 
     @property
     def ln2(self):
-        """
-        Returns (str): LN2 is present in dcss format.
-
-        """
+        """Whether LN2 is present in DCSS format."""
         if self.robot.ln2_level == 0:
             return 'no'
         elif self.robot.ln2_level == 1:
@@ -183,12 +163,9 @@ class RobotDHS(DHS):
 
     @property
     def state(self):
-        """
-        Returns (str): Current task being executed.
-
-        """
+        """Current task being executed."""
         state = self.robot.current_task or 'unknown'
-        return state.lower()
+        return state.lower()  # Lower-case to prevent "Idle" blocking BluIce
 
     # ****************************************************************
     # ******************** EPICS callbacks ***************************
@@ -272,6 +249,7 @@ class RobotDHS(DHS):
     # ****************************************************************
 
     def send_set_output_string(self):
+        """Send DCSS the state of digital outputs."""
         msg = (
             'htos_set_string_completed robot_output normal '
             '0 '  # out0
@@ -286,6 +264,7 @@ class RobotDHS(DHS):
         self.send_xos3(msg)
 
     def send_set_input_string(self):
+        """Send DCSS the state of digital inputs."""
         msg = (
             'htos_set_string_completed robot_input normal '
             '0 0 0 0 0 0 0 0 '  # in0-7
@@ -300,8 +279,7 @@ class RobotDHS(DHS):
         self.send_xos3(msg)
 
     def send_set_status_string(self):
-        """
-        Send the robot_status string to the dcss.
+        """Send the robot_status string to the DCSS.
 
         Components of the message are:
 
@@ -336,8 +314,7 @@ class RobotDHS(DHS):
         self.send_xos3(msg)
 
     def send_set_state_string(self):
-        """
-        Send the robot_state string to the dcss.
+        """Send the robot_state string to the DCSS.
 
         Eg:
             htos_set_string_completed robot_state normal
@@ -389,6 +366,7 @@ class RobotDHS(DHS):
         self.send_xos3(msg)
 
     def send_set_robot_cassette_string(self):
+        """Send DCSS the probe states."""
         # TODO: Test mounted position
         sample_on_goni = self.robot.sample_locations['goniometer']
         mounted_position, mounted_port = (sample_on_goni
@@ -441,17 +419,27 @@ class RobotDHS(DHS):
     # ****************************************************************
 
     def stoh_register_string(self, *args, **kwargs):
-        pass  # Don't care.
+        """Ignored.
+
+        We aren't using this part of the DCS protocol as we hardcode which
+        strings and operations the DCSS will receive. This method is only here
+        to supress warnings about unimplemented DCSS functions.
+
+        """
 
     def stoh_register_operation(self, *args, **kwargs):
-        pass  # Don't care.
+        """Ignored: see stoh_register_operation."""
 
     def stoh_abort_all(self, operation, *args):
-        """ Called by BluIce Abort button """
-        # TODO: Do anything?
-        pass
+        """Called by BluIce Abort button."""
+        pass  # TODO: Do anything?
 
     def robot_config(self, operation, task, *args):
+        """Delegate robot_config operations to the appropriate method.
+
+        Catch DCSS requests such as "robot_config <task>" and if there is a
+        method named robot_config_<task> then execute that method.
+        """
         try:
             func = getattr(self, 'robot_config_' + task)
         except AttributeError:
@@ -460,20 +448,29 @@ class RobotDHS(DHS):
             func(operation, *args)
 
     def robot_config_clear(self, operation):
-        """
-        Called by BluIce "Inspected" button.
-        """
+        """Called by BluIce "Inspected" button."""
         self.robot_config_clear_status(operation)
 
     def robot_config_clear_status(self, operation):
+        """Clear the robot status flags.
+
+        Called by running "robot_config clear_status" in BluIce Operation View.
+
+        """
         callback = partial(self.operation_callback, operation)
         self.robot.clear('status', callback=callback)
 
     def robot_config_clear_all(self, operation):
+        """Clear the robot status and probe information.
+
+        Called by running "robot_config clear_all" in BluIce Operation View.
+
+        """
         callback = partial(self.operation_callback, operation)
         self.robot.clear('all', callback=callback)
 
     def robot_config_hw_output_switch(self, operation, output):
+        """Called by the I/O buttons on the BluIce Robot Advanced tab."""
         output = int(output)
         if output == Output.gripper:
             func = self.robot.set_gripper
@@ -492,13 +489,12 @@ class RobotDHS(DHS):
         func(value, callback=partial(self.operation_callback, operation))
 
     def robot_config_reset_cassette(self, operation):
-        """ Called by the "reset all to unknown" BluIce button """
+        """Called by the "reset all to unknown" BluIce button."""
         callback = partial(self.operation_callback, operation)
         self.robot.reset_holders(['left', 'middle', 'right'], callback=callback)
 
     def robot_config_set_index_state(self, operation, start, port_count, state):
-        """
-        Called by right-clicking ports in BluIce.
+        """Called by right-clicking ports in BluIce.
 
         Examples:
             left cassette column A 1-8 to bad: start='1', port_count='8', state='b'
@@ -521,7 +517,7 @@ class RobotDHS(DHS):
         self.robot.reset_ports(ports, callback=callback)
 
     def robot_config_set_port_state(self, operation, port, state):
-        """ Called by the reset cassette status to unknown button in BluIce """
+        """Called by the reset cassette status to unknown button in BluIce."""
         if port.endswith('X0') and state == 'u':
             position = {'l': 'left', 'm': 'middle', 'r': 'right'}.get(port[0])
             callback = partial(self.operation_callback, operation)
@@ -530,9 +526,15 @@ class RobotDHS(DHS):
             operation.operation_error('Not implemented')
 
     def robot_config_reset_mounted_counter(self, operation):
+        """Called by the BluIce Reset Counter button."""
         self.robot.run_operation('reset_mount_counters')
 
     def robot_config_set_mounted(self, operation, arg):
+        """Set which sample is mounted.
+
+        Called by running "robot_config set_mounted lA1" in BluIce Operation View.
+
+        """
         try:
             position, column, port = arg
             position = {'l': 'left', 'm': 'middle', 'r': 'right'}[position.lower()]
@@ -547,6 +549,7 @@ class RobotDHS(DHS):
                                         callback=callback)
 
     def robot_config_probe(self, operation, *ports):
+        """Called by starting a probe from the BluIce Robot Probe tab."""
         ports = [int(p) for p in ports]
         n = SAMPLES_PER_POSITION + 1
         spec = {
@@ -557,6 +560,7 @@ class RobotDHS(DHS):
         self.robot.probe(spec, callback=partial(self.operation_callback, operation))
 
     def robot_calibrate(self, operation, target, *task_args):
+        """Called by starting a calibration from the BluIce Robot Calibrate tab."""
         task_args = ' '.join(task_args)
         if target == 'magnet_post':
             target = 'toolset'
@@ -564,7 +568,17 @@ class RobotDHS(DHS):
                              callback=partial(self.operation_callback, operation))
 
     def prepare_mount_crystal(self, operation, *args):
-        # Also used by prepare_dismount_crystal and prepare_mount_next_crystal
+        """Instruct the robot to prepare for a sample mount.
+
+        Called by starting a mount from the BluIce Sample tab. This method will
+        instruct the robot to go to the cooling point and wait. Meanwhile the
+        DCSS will be performing the makesafe routine. Only if the makesafe
+        succeeds will the robot be told to mount the sample.
+
+        Note: prepare_dismount_crystal and prepare_mount_next_crystal delegate to
+        this method.
+
+        """
         self.log.info('prepare_mount_crystal: %r', args)
         # TODO: Check args
         operation.operation_update('OK to prepare')
@@ -572,21 +586,38 @@ class RobotDHS(DHS):
         self.robot.prepare_for_mount(callback=callback)
 
     def prepare_dismount_crystal(self, operation, *args):
+        """Called by requesting a dismount from the BluIce Sample tab."""
         self.log.info('prepare_dismount_crystal: %r', args)
         self.prepare_mount_crystal(operation)
 
     def prepare_mount_next_crystal(self, operation, *args):
+        """
+        Called by requesting a mount from the BluIce Sample tab when a sample
+        is already mounted on the goniometer.
+
+        """
         self.log.info('prepare_mount_next_crystal: %r', args)
         self.prepare_mount_crystal(operation)
 
     def mount_crystal(self, operation, cassette, row, column, *args):
-        # Also used by mount_next_crystal
+        """
+        Called by the DCSS after the user has requested a mount and the
+        makesafe routine has completed successfully.
+
+        Note: `mount_next_crystal` delegates to this method.
+
+        """
         self.log.info('mount_crystal: %r %r %r', cassette, row, column)
         cassette = {'r': 'right', 'm': 'middle', 'l': 'left'}[cassette]
         callback = partial(self.operation_callback, operation)
         self.robot.mount(cassette, column, int(row), callback=callback)
 
     def dismount_crystal(self, operation, cassette, row, column, *_):
+        """
+        Called by the DCSS after the user has requested a dismount and the
+        makesafe routine has completed successfully.
+
+        """
         self.log.info('dismount_crystal: %r %r %r', cassette, row, column)
         cassette = {'r': 'right', 'm': 'middle', 'l': 'left'}[cassette]
         callback = partial(self.operation_callback, operation)
@@ -595,6 +626,11 @@ class RobotDHS(DHS):
     def mount_next_crystal(self, operation,
                            current_cassette, current_row, current_column,
                            cassette, row, column, *args):
+        """
+        Called by the DCSS after the user has requested a mount when a sample
+        is already mounted and the makesafe routine has completed successfully.
+
+        """
         self.log.info('mount_next_crystal %r %r %r %r %r %r',
                       current_cassette, current_row, current_column,
                       cassette, row, column)
@@ -605,6 +641,15 @@ class RobotDHS(DHS):
         operation.operation_completed('OK')
 
     def port_tuple_to_str(self, port_tuple):
+        """Convert a `(position, port_index)` tuple to a port string.
+
+        Args:
+            port_tuple: tuple of position (`'left'`, `'middle'`, `'right'`) and
+                port index (0-97)
+
+        Returns (str): Port string in DCSS format (eg `'l 1 A'`).
+
+        """
         if not port_tuple:
             return 'invalid'
         position, port = port_tuple
