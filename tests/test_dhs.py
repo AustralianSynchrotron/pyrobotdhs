@@ -127,6 +127,36 @@ def test_send_set_state_string(dhs):
     )
 
 
+def test_send_set_state_string_with_sample_on_goni(dhs):
+    dhs.send_xos3 = MagicMock()
+    dhs.robot.configure_mock(
+        dumbbell_state=1,
+        closest_point=18,
+        ln2_level=0,
+        holder_types={'left': HolderType.normal},
+        sample_locations={
+            'goniometer': ('left', 0),
+            'cavity': None,
+            'picker': None,
+            'placer': None,
+        }
+    )
+    dhs.send_set_state_string()
+    assert dhs.send_xos3.call_args == call(
+        'htos_set_string_completed robot_state normal '
+        '{on gonio} {in_cradle} '
+        'P18 '
+        'no '
+        '{l 1 A} '
+        '0 0 0 '
+        '1 '
+        '0 0 '
+        '{invalid} '
+        '{invalid} {invalid} '
+        '0 0 0 0'
+    )
+
+
 def test_robot_config_probe(dhs):
     dhs.robot.probe.return_value = None
     dhs.operation_complete = MagicMock()

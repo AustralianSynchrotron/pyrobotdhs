@@ -20,7 +20,7 @@ Setup
 .. code-block:: bash
 
    python3 -m venv .venv
-   . .venv/bin activate
+   . .venv/bin/activate
    pip install git+https://github.com/AustralianSynchrotron/pyrobotdhs
 
 
@@ -29,7 +29,7 @@ Running
 
 .. code-block:: bash
 
-   . .venv/bin activate
+   . .venv/bin/activate
    pyrobotdhs --config config.json --dcss 10.109.3.21
 
 

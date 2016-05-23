@@ -182,10 +182,6 @@ class RobotDHS(DHS):
             return 'wrong'
 
     @property
-    def current_port(self):
-        return ''  # TODO: Needed?
-
-    @property
     def state(self):
         """
         Returns (str): Current task being executed.
@@ -369,30 +365,27 @@ class RobotDHS(DHS):
 
         """
         sample_is_on_goni = bool(self.robot.sample_locations['goniometer'])
-        goniometer_port = self.port_tuple_to_str(
-            self.robot.sample_locations['goniometer']
-        )
         tong_port = self.port_tuple_to_str(self.robot.sample_locations['cavity'])
         picker_port = self.port_tuple_to_str(self.robot.sample_locations['picker'])
         placer_port = self.port_tuple_to_str(self.robot.sample_locations['placer'])
         msg = (
-           'htos_set_string_completed robot_state normal '
-           '{{{0.sample_state}}} '
-           '{{{0.dumbbell_state}}} '
-           'P{robot.closest_point} '
-           '{0.ln2} '
-           '{{{goniometer_port}}} '
-           '0 0 0 '
-           '{sample_is_on_goni:d} '
-           '0 0 '
-           '{{{tong_port}}} '
-           '{{{picker_port}}} '
-           '{{{placer_port}}} '
-           '0 0 '
-           '0 0'
+            'htos_set_string_completed robot_state normal '
+            '{{{0.sample_state}}} '
+            '{{{0.dumbbell_state}}} '
+            'P{robot.closest_point} '
+            '{0.ln2} '
+            '{{{0.mounted}}} '
+            '0 0 0 '
+            '{sample_is_on_goni:d} '
+            '0 0 '
+            '{{{tong_port}}} '
+            '{{{picker_port}}} '
+            '{{{placer_port}}} '
+            '0 0 '
+            '0 0'
         ).format(self, robot=self.robot, sample_is_on_goni=sample_is_on_goni,
-                 goniometer_port=goniometer_port, tong_port=tong_port,
-                 picker_port=picker_port, placer_port=placer_port)
+                 tong_port=tong_port, picker_port=picker_port,
+                 placer_port=placer_port)
         self.send_xos3(msg)
 
     def send_set_robot_cassette_string(self):
