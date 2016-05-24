@@ -80,6 +80,17 @@ def test_system_error_message_does_not_update_dcss_when_ok(dhs):
     assert dhs.send_xos3.call_args_list == []
 
 
+@pytest.mark.parametrize('callback', ['on_last_toolset_calibration',
+                                      'on_last_left_calibration',
+                                      'on_last_middle_calibration',
+                                      'on_last_right_calibration',
+                                      'on_last_goniometer_calibration'])
+def test_calibration_time_updates_send_timestamp_message(dhs, callback):
+    dhs.send_calibration_timestamps = MagicMock()
+    getattr(dhs, callback)('2016/05/20 10:20:30')
+    assert dhs.send_calibration_timestamps.called is True
+
+
 def test_port_tuple_to_str_for_cassettes(dhs):
     dhs.robot.configure_mock(
         holder_types={'left': HolderType.normal}

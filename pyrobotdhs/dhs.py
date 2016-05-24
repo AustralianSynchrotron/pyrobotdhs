@@ -244,6 +244,16 @@ class RobotDHS(DHS):
         self.send_set_status_string()
         self.send_set_robot_cassette_string()
 
+    def on_last_toolset_calibration(self, _): self.send_calibration_timestamps()
+
+    def on_last_left_calibration(self, _): self.send_calibration_timestamps()
+
+    def on_last_middle_calibration(self, _): self.send_calibration_timestamps()
+
+    def on_last_right_calibration(self, _): self.send_calibration_timestamps()
+
+    def on_last_goniometer_calibration(self, _): self.send_calibration_timestamps()
+
     # ****************************************************************
     # ******************** dhs -> dcss messages **********************
     # ****************************************************************
