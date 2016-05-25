@@ -29,7 +29,6 @@ Running
 
 .. code-block:: bash
 
-   . .venv/bin/activate
    pyrobotdhs --config config.json --dcss 10.109.3.21
 
 
@@ -37,6 +36,8 @@ Contents:
 
 .. toctree::
    :maxdepth: 2
+
+   api
 
 
 Indices and tables
