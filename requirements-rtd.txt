@@ -1,0 +1,3 @@
+-e git+https://github.com/AustralianSynchrotron/aspyrobot#egg=aspyrobot
+-e git+https://github.com/AustralianSynchrotron/aspyrobotmx#egg=aspyrobotmx
+-e git+https://github.com/AustralianSynchrotron/pydcss#egg=dcss
