@@ -1,16 +1,6 @@
-aspyrobot==0.14.2
-aspyrobotmx==0.12.0
-click==6.6
-colorlog==2.7.0
-dcss==2.0.0
 flake8==2.5.4
 mccabe==0.4.0
-mxbeamline==1.1.0
-numpy==1.11.0
 pep8==1.7.0
 py==1.4.31
-pyepics==3.2.5
 pyflakes==1.0.0
--e git+git@github.com:AustralianSynchrotron/pyrobotdhs.git@3deefc62dffd16ccfa32da2e4838561e4801343d#egg=pyrobotdhs
 pytest==2.9.1
-pyzmq==15.2.0
