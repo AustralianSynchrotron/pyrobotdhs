@@ -235,6 +235,8 @@ class RobotDHS(DHS):
 
     def on_ln2_level(self, _): self.send_set_state_string()
 
+    def on_dumbbell_state(self, _): self.send_set_state_string()
+
     def on_port_states(self, _): self.send_set_robot_cassette_string()
 
     def on_holder_types(self, _): self.send_set_robot_cassette_string()
