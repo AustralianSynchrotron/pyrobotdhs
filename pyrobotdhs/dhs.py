@@ -189,11 +189,11 @@ class RobotDHS(DHS):
             'WARNING': 'warning',
             'ERROR': 'error',
         }.get(level, 'error')
-        self.send_xos3('htos_log %s %s' % (level, message))
+        self.send_xos3('htos_log %s robot %s' % (level, message))
 
     def on_system_error_message(self, value):
         if value != 'OK':
-            self.send_xos3('htos_log error %s' % value)
+            self.send_xos3('htos_log error robot %s' % value)
 
     def on_port_distances(self, value):
         # TODO: Need to know which position
@@ -255,6 +255,9 @@ class RobotDHS(DHS):
     def on_last_right_calibration(self, _): self.send_calibration_timestamps()
 
     def on_last_goniometer_calibration(self, _): self.send_calibration_timestamps()
+
+    def on_mount_message(self, message):
+        self.send_xos3('htos_set_string_completed robot_sample normal %s' % message)
 
     # ****************************************************************
     # ******************** dhs -> dcss messages **********************

@@ -71,7 +71,7 @@ def test_robot_config_set_port_state(dhs):
 def test_system_error_message_updates_dcss(dhs):
     dhs.send_xos3 = MagicMock()
     dhs.on_system_error_message('Bad bad happened')
-    assert dhs.send_xos3.call_args == call('htos_log error Bad bad happened')
+    assert dhs.send_xos3.call_args == call('htos_log error robot Bad bad happened')
 
 
 def test_system_error_message_does_not_update_dcss_when_ok(dhs):
