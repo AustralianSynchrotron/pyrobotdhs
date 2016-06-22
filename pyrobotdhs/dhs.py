@@ -464,7 +464,8 @@ class RobotDHS(DHS):
 
     def robot_config_clear(self, operation):
         """Called by BluIce "Inspected" button."""
-        self.robot_config_clear_status(operation)
+        callback = partial(self.operation_callback, operation)
+        self.robot.inspected(callback=callback)
 
     def robot_config_clear_status(self, operation):
         """Clear the robot status flags.
