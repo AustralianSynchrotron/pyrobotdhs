@@ -329,3 +329,10 @@ def test_robot_config_set_mounted(dhs):
     dhs.robot_config_set_mounted(MagicMock(), 'mJ2')
     expected_args = ('middle', 'J', 2, SampleState.goniometer)
     assert mock_robot.set_sample_state.call_args[0] == expected_args
+
+
+def test_robot_config_set_mounted_with_two_digit_port(dhs):
+    mock_robot = dhs.robot
+    dhs.robot_config_set_mounted(MagicMock(), 'mJ12')
+    expected_args = ('middle', 'J', 12, SampleState.goniometer)
+    assert mock_robot.set_sample_state.call_args[0] == expected_args

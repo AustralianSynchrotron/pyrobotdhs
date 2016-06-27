@@ -552,7 +552,7 @@ class RobotDHS(DHS):
 
         """
         try:
-            position, column, port = arg
+            position, column, port = arg[0], arg[1], arg[2:]
             position = {'l': 'left', 'm': 'middle', 'r': 'right'}[position.lower()]
             column = column.upper()
             port = int(port)
