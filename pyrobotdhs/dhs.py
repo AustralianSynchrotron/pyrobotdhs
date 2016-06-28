@@ -653,8 +653,8 @@ class RobotDHS(DHS):
         self.mount_crystal(operation, cassette, row, column)
 
     def robot_standby(self, operation, *args):
-        # TODO: Does anything need to be done here?
-        operation.operation_completed('OK')
+        callback = partial(self.operation_callback, operation)
+        self.robot.go_to_standby(callback=callback)
 
     def port_tuple_to_str(self, port_tuple):
         """Convert a `(position, port_index)` tuple to a port string.
