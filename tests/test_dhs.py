@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import MagicMock, call
 
 from aspyrobotmx.codes import (HolderType, PortState, RobotStatus, DumbbellState,
-                               SampleState)
+                               SampleState, PortState)
 
 from pyrobotdhs import RobotDHS
 
@@ -47,6 +47,27 @@ def test_robot_config_reset_cassette(dhs):
     assert dhs.robot.reset_holders.call_args[0] == (['left', 'middle', 'right'],)
 
 
+def test_robot_config_set_index_state_cassette_port_17_unknown(dhs):
+    dhs.robot.configure_mock(holder_types={'left': HolderType.normal})
+    dhs.robot_config_set_index_state(MagicMock(), '17', '1', 'u')
+    expected_args = ('left', 'C', 1, PortState.unknown)
+    assert dhs.robot.set_port_state.call_args[0] == expected_args
+
+
+def test_robot_config_set_index_state_adaptor_port_17_unknown(dhs):
+    dhs.robot.configure_mock(holder_types={'left': HolderType.superpuck})
+    dhs.robot_config_set_index_state(MagicMock(), '17', '1', 'u')
+    expected_args = ('left', 'B', 1, PortState.unknown)
+    assert dhs.robot.set_port_state.call_args[0] == expected_args
+
+
+def test_robot_config_set_index_state_adaptor_port_17_error(dhs):
+    dhs.robot.configure_mock(holder_types={'left': HolderType.superpuck})
+    dhs.robot_config_set_index_state(MagicMock(), '17', '1', 'b')
+    expected_args = ('left', 'B', 1, PortState.error)
+    assert dhs.robot.set_port_state.call_args[0] == expected_args
+
+
 def test_robot_config_set_index_state_left_column_A(dhs):
     dhs.robot_config_set_index_state(MagicMock(), '1', '8', 'b')
     expected_ports = {'left': [1] * 8 + [0] * 88,
@@ -55,10 +76,10 @@ def test_robot_config_set_index_state_left_column_A(dhs):
     assert dhs.robot.reset_ports.call_args[0][0] == expected_ports
 
 
-def test_robot_config_set_index_state_middle_adaptor_mB1(dhs):
-    dhs.robot_config_set_index_state(MagicMock(), '114', '1', 'b')
+def test_robot_config_set_index_state_middle_adaptor_mB(dhs):
+    dhs.robot_config_set_index_state(MagicMock(), '114', '16', 'b')
     expected_ports = {'left': [0] * 96,
-                      'middle': [0] * 16 + [1] + [0] * 79,
+                      'middle': [0] * 16 + [1] * 16 + [0] * 64,
                       'right': [0] * 96}
     assert dhs.robot.reset_ports.call_args[0][0] == expected_ports
 
@@ -105,6 +126,14 @@ def test_port_tuple_to_str_for_adaptors(dhs):
     )
     s = dhs.port_tuple_to_str(('left', 16))
     assert s == 'l 1 B'
+
+
+def test_port_tuple_to_str_for_unkown(dhs):
+    dhs.robot.configure_mock(
+        holder_types={'left': HolderType.unknown}
+    )
+    s = dhs.port_tuple_to_str(('left', 16))
+    assert s == 'invalid'
 
 
 def test_send_set_state_string(dhs):

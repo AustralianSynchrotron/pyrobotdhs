@@ -3,7 +3,7 @@ from threading import Thread
 from enum import IntEnum
 
 from aspyrobotmx.codes import (HolderType, PortState, RobotStatus, DumbbellState,
-                               SampleState)
+                               SampleState, PortState)
 from dcss import Server as DHS
 
 
@@ -519,18 +519,31 @@ class RobotDHS(DHS):
 
         """
         start, port_count = int(start), int(port_count)
+        state = PortState.error if state == 'b' else PortState.unknown
         samples_and_type_per_position = SAMPLES_PER_POSITION + 1
         position_index = start // samples_and_type_per_position
         position = ['left', 'middle', 'right'][position_index]
         start = start % samples_and_type_per_position
-        # TODO: Set holder bad if start == 0
         start -= 1
-        end = start + port_count
-        ports = {position: [0] * SAMPLES_PER_POSITION
-                 for position in ['left', 'middle', 'right']}
-        ports[position][start:end] = [1] * port_count
-        callback = partial(self.operation_callback, operation)
-        self.robot.reset_ports(ports, callback=callback)
+        # If right-clicking a single port we support setting it to error
+        # If right-clicked on all for multiple ports only resetting to unknown
+        # is supported
+        if port_count == 1:
+            try:
+                column, row = self.column_and_row_from_port_index(position, start)
+            except ValueError as e:
+                operation.operation_error(str(e))
+            else:
+                callback = partial(self.operation_callback, operation)
+                self.robot.set_port_state(position, column, row, state,
+                                          callback=callback)
+        else:
+            end = start + port_count
+            ports = {position: [0] * SAMPLES_PER_POSITION
+                     for position in ['left', 'middle', 'right']}
+            ports[position][start:end] = [1] * port_count
+            callback = partial(self.operation_callback, operation)
+            self.robot.reset_ports(ports, callback=callback)
 
     def robot_config_set_port_state(self, operation, port, state):
         """Called by the reset cassette status to unknown button in BluIce."""
@@ -669,16 +682,23 @@ class RobotDHS(DHS):
         if not port_tuple:
             return 'invalid'
         position, port = port_tuple
+        try:
+            column, row = self.column_and_row_from_port_index(position, port)
+        except ValueError:
+            return 'invalid'
+        else:
+            return '{position} {row} {column}'.format(position=position[0],
+                                                      column=column, row=row)
+
+    def column_and_row_from_port_index(self, position, port):
         holder_type = self.robot.holder_types[position]
         if holder_type in {HolderType.normal, HolderType.calibration}:
             column = chr(port // 8 + ord('A'))
             row = port % 8 + 1
-            return '{position} {row} {column}'.format(position=position[0],
-                                                      column=column, row=row)
+            return column, row
         elif holder_type == HolderType.superpuck:
             puck = chr(port // 16 + ord('A'))
             row = port % 16 + 1
-            return '{position} {row} {puck}'.format(position=position[0],
-                                                    puck=puck, row=row)
+            return puck, row
         else:
-            return 'invalid'
+            raise ValueError('Cannot determine column, port if type is unknown')
