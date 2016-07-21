@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock, call, ANY
 
 from aspyrobotmx.codes import (HolderType, PortState, RobotStatus, DumbbellState,
                                SampleState, PortState)
@@ -25,47 +25,48 @@ def test_robot_config_hw_output_switch_for_gripper(dhs, start, output):
     mock_robot.gripper_command = start
     mock_robot.set_gripper.return_value = None
     dhs.robot_config_hw_output_switch(mock_operation, '1')
-    assert mock_robot.set_gripper.call_args[0][0] == output
+    assert mock_robot.set_gripper.call_args == call(output, callback=ANY)
 
 
 def test_robot_config_hw_output_switch_for_heater(dhs):
     mock_robot = dhs.robot
     mock_robot.heater_command = 1
     dhs.robot_config_hw_output_switch(MagicMock(), '14')
-    assert mock_robot.set_heater.call_args[0][0] == 0
+    assert mock_robot.set_heater.call_args == call(0, callback=ANY)
 
 
 def test_robot_config_hw_output_switch_for_heater_air(dhs):
     mock_robot = dhs.robot
     mock_robot.heater_air_command = 1
     dhs.robot_config_hw_output_switch(MagicMock(), '13')
-    assert mock_robot.set_heater_air.call_args[0][0] == 0
+    assert mock_robot.set_heater_air.call_args == call(0, callback=ANY)
 
 
 def test_robot_config_reset_cassette(dhs):
     dhs.robot_config_reset_cassette(MagicMock())
-    assert dhs.robot.reset_holders.call_args[0] == (['left', 'middle', 'right'],)
+    expected_call = call(['left', 'middle', 'right'], callback=ANY)
+    assert dhs.robot.reset_holders.call_args == expected_call
 
 
 def test_robot_config_set_index_state_cassette_port_17_unknown(dhs):
     dhs.robot.configure_mock(holder_types={'left': HolderType.normal})
     dhs.robot_config_set_index_state(MagicMock(), '17', '1', 'u')
-    expected_args = ('left', 'C', 1, PortState.unknown)
-    assert dhs.robot.set_port_state.call_args[0] == expected_args
+    expected_call = call('left', 'C', 1, PortState.unknown, callback=ANY)
+    assert dhs.robot.set_port_state.call_args == expected_call
 
 
 def test_robot_config_set_index_state_adaptor_port_17_unknown(dhs):
     dhs.robot.configure_mock(holder_types={'left': HolderType.superpuck})
     dhs.robot_config_set_index_state(MagicMock(), '17', '1', 'u')
-    expected_args = ('left', 'B', 1, PortState.unknown)
-    assert dhs.robot.set_port_state.call_args[0] == expected_args
+    expected_call = call('left', 'B', 1, PortState.unknown, callback=ANY)
+    assert dhs.robot.set_port_state.call_args == expected_call
 
 
 def test_robot_config_set_index_state_adaptor_port_17_error(dhs):
     dhs.robot.configure_mock(holder_types={'left': HolderType.superpuck})
     dhs.robot_config_set_index_state(MagicMock(), '17', '1', 'b')
-    expected_args = ('left', 'B', 1, PortState.error)
-    assert dhs.robot.set_port_state.call_args[0] == expected_args
+    expected_call = call('left', 'B', 1, PortState.error, callback=ANY)
+    assert dhs.robot.set_port_state.call_args == expected_call
 
 
 def test_robot_config_set_index_state_left_column_A(dhs):
@@ -73,7 +74,7 @@ def test_robot_config_set_index_state_left_column_A(dhs):
     expected_ports = {'left': [1] * 8 + [0] * 88,
                       'middle': [0] * 96,
                       'right': [0] * 96}
-    assert dhs.robot.reset_ports.call_args[0][0] == expected_ports
+    assert dhs.robot.reset_ports.call_args == call(expected_ports, callback=ANY)
 
 
 def test_robot_config_set_index_state_middle_adaptor_mB(dhs):
@@ -81,12 +82,12 @@ def test_robot_config_set_index_state_middle_adaptor_mB(dhs):
     expected_ports = {'left': [0] * 96,
                       'middle': [0] * 16 + [1] * 16 + [0] * 64,
                       'right': [0] * 96}
-    assert dhs.robot.reset_ports.call_args[0][0] == expected_ports
+    assert dhs.robot.reset_ports.call_args == call(expected_ports, callback=ANY)
 
 
 def test_robot_config_set_port_state(dhs):
     dhs.robot_config_set_port_state(MagicMock(), 'lX0', 'u')
-    assert dhs.robot.reset_holders.call_args[0] == (['left'],)
+    assert dhs.robot.reset_holders.call_args == call(['left'], callback=ANY)
 
 
 def test_system_error_message_updates_dcss(dhs):
@@ -204,7 +205,7 @@ def test_robot_config_probe(dhs):
     ports = ['1'] * (96 + 1) + ['0'] * (96 + 1) * 2
     dhs.robot_config_probe(mock_operation, *ports)
     expected_spec = {'left': [1] * 96, 'middle': [0] * 96, 'right': [0] * 96}
-    assert dhs.robot.probe.call_args[0][0] == expected_spec
+    assert dhs.robot.probe.call_args == call(expected_spec, callback=ANY)
 
 
 def test_prepare_mount_crystal(dhs):
@@ -356,12 +357,12 @@ def test_ln2_property(dhs, level, expected_str):
 def test_robot_config_set_mounted(dhs):
     mock_robot = dhs.robot
     dhs.robot_config_set_mounted(MagicMock(), 'mJ2')
-    expected_args = ('middle', 'J', 2, SampleState.goniometer)
-    assert mock_robot.set_sample_state.call_args[0] == expected_args
+    expected_call = call('middle', 'J', 2, SampleState.goniometer, callback=ANY)
+    assert mock_robot.set_sample_state.call_args == expected_call
 
 
 def test_robot_config_set_mounted_with_two_digit_port(dhs):
     mock_robot = dhs.robot
     dhs.robot_config_set_mounted(MagicMock(), 'mJ12')
-    expected_args = ('middle', 'J', 12, SampleState.goniometer)
-    assert mock_robot.set_sample_state.call_args[0] == expected_args
+    expected_call = call('middle', 'J', 12, SampleState.goniometer, callback=ANY)
+    assert mock_robot.set_sample_state.call_args == expected_call
